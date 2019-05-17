@@ -10,7 +10,7 @@ Convert E57 point cloud format to PCL pcd format
 
 # How to build
 	1. clone with submodul: git clone --recursive https://github.com/dogod621/E57Converter.git
-	2. make the project: use CMAKE (PS. you may want to set USING_STATIC_XERCES ON)
+	2. build the project: use CMAKE (PS. you may want to set USING_STATIC_XERCES ON)
 	
 # How to use
 Demo example:<br>
@@ -20,7 +20,7 @@ Test E57 Data from https://lasers.leica-geosystems.com/blk360-data-set-downloads
 	
 	
 	For example: 
-		you want to convert a .e57 file - "D:/src.e57" to PCL .pcd file - "D:/dst.pcd"
+		you want to convert a .e57 file to PCL .pcd file
 		
 		1. Convert .e57 to PCL OutOfCoreOctree: 
 			Command:
@@ -68,7 +68,7 @@ Test E57 Data from https://lasers.leica-geosystems.com/blk360-data-set-downloads
 					(For removing duplicate scan points or for downsampling)
 
 # Useful fuctions:
-	1. Print .e57 file - "D:/src.e57" tree structure (This is useful for e57 developers):
+	1. Print .e57 file tree structure (This is useful for e57 developers):
 		Command:
 			E57Converter.exe -printE57Format -src "D:/src.e57"
 		
@@ -79,7 +79,7 @@ Test E57 Data from https://lasers.leica-geosystems.com/blk360-data-set-downloads
 			-src:
 				the .e57 file
 				
-	2. Convert .pcd file - "D:/src.pcd" to .ply file - "D:/dst.ply": 
+	2. Convert .pcd file to .ply file: 
 		(This is different from PCL tool pcd2ply, this will not output point's scan index and intensity, because PLY file users may not want those values )
 		Command:
 			E57Converter.exe -convert -src "D:/src.pcd" -dst "D:/dst.ply" -rgb
@@ -102,7 +102,7 @@ Test E57 Data from https://lasers.leica-geosystems.com/blk360-data-set-downloads
 			-binary:
 				specify output as binary (default false)
 			
-	3. Rebuild PCL OutOfCoreOctree - "D:/src/" LOD:
+	3. Rebuild PCL OutOfCoreOctree LOD:
 		Command:
 			E57Converter.exe -buildLOD -src "D:/src/" -samplePercent 0.125
 	
