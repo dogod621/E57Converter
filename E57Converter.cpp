@@ -357,7 +357,7 @@ namespace pcl
 							if (hasPointXYZ)
 							{
 								Eigen::Vector4d xyz(x[pi], y[pi], z[pi], 1.0);
-								if (pointRGBNeedRecover)
+								if (pointXYZNeedRecover)
 									xyz = pointXYZRecover * xyz;
 								
 								switch (cs)
