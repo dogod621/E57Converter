@@ -13,12 +13,18 @@ Convert E57 point cloud format to PCL pcd format
 	2. make the project: use CMAKE (PS. you may want to set USING_STATIC_XERCES ON)
 	
 # How to use
+Demo example:<br>
+Test E57 Data from https://lasers.leica-geosystems.com/blk360-data-set-downloads
+
+![DEMO](https://user-images.githubusercontent.com/6807005/57923706-9c782f00-78d5-11e9-9bdc-5087cad178ef.jpg)
+	
+	
 	For example: 
 		you want to convert a .e57 file - "D:/src.e57" to PCL .pcd file - "D:/dst.pcd"
 		
 		1. Convert .e57 to PCL OutOfCoreOctree: 
 			Command:
-				E57Converter.exe -convert -src "D:/src.e57" -dst "D:/dst/" -res 2 -min "-20 -20 -20" -max "20 20 20"
+				E57Converter.exe -convert -src "D:/src.e57" -dst "D:/dst/" -res 5 -min "-100 -100 -100" -max "100 100 100"
 		
 			Paramerte description:
 				-convert:
@@ -31,13 +37,13 @@ Convert E57 point cloud format to PCL pcd format
 					output file, for this example is a not exist folder ( You must give a not exist folder for create PCL OutOfCoreOctree ).
 					
 				-res 2: 
-					means node dimension of the octree is 2 meters.
+					means node dimension of the octree is 5 meters.
 					
 				-min "-20 -20 -20": 
-					means AABB xyz of octree minimum is -20 meter.
+					means AABB xyz of octree minimum is -100 meter.
 					
 				-max "20 20 20": 
-					means AABB xyz of octree maximum is 20 meter.
+					means AABB xyz of octree maximum is 100 meter.
 					
 				-samplePercent 
 					sets the sampling percent for constructing LODs.
@@ -45,7 +51,7 @@ Convert E57 point cloud format to PCL pcd format
 					
 		2. Convert PCL OutOfCoreOctree to .pcd:
 			Command:
-				E57Converter.exe -convert -src "D:/dst/" -dst "D:/dst.pcd" -voxelUnit 0.005
+				E57Converter.exe -convert -src "D:/dst/" -dst "D:/dst.pcd" -voxelUnit 0.05
 				
 			Paramerte description:
 				-convert:
@@ -58,7 +64,7 @@ Convert E57 point cloud format to PCL pcd format
 					output file.
 					
 				-voxelUnit:
-					the voxel filter voxel size, for this exammple is 0.005 meter (0.5 cm)
+					the voxel filter voxel size, for this exammple is 0.05 meter (5 cm)
 					(For removing duplicate scan points or for downsampling)
 
 # Useful fuctions:
