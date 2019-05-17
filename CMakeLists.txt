@@ -21,9 +21,9 @@ if(NOT IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/libE57Format")
     "by running \"git submodule update --init --recursive\"")
 endif()
 
-set ( XercesC_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../Dependency/Xerces-C/install/include" )
-set ( XercesC_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/../Dependency/Xerces-C/install/lib/xerces-c_3.lib" )
-set ( XercesC_VERSION 3 )
+#set ( XercesC_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../Dependency/Xerces-C/install/include" )
+#set ( XercesC_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/../Dependency/Xerces-C/install/lib/xerces-c_3.lib" )
+#set ( XercesC_VERSION 3 )
 
 add_subdirectory (libE57Format)
 #include_directories(${XercesC_INCLUDE_DIR})
