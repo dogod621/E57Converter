@@ -10,8 +10,8 @@ add_executable( E57Converter  ${srcs} ${hdrs})
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 	set ( CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT OFF )
-	#set(CMAKE_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME})
-	SET(CMAKE_INSTALL_PREFIX "${CMAKE_CURRENT_SOURCE_DIR}/../install/" CACHE PATH "${CMAKE_CURRENT_SOURCE_DIR}/../install/" FORCE)
+	set(CMAKE_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME})
+	#SET(CMAKE_INSTALL_PREFIX "${CMAKE_CURRENT_SOURCE_DIR}/../install/" CACHE PATH "${CMAKE_CURRENT_SOURCE_DIR}/../install/" FORCE)
 endif(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 
 # E57
@@ -26,7 +26,6 @@ endif()
 #set ( XercesC_VERSION 3 )
 
 add_subdirectory (libE57Format)
-#include_directories(${XercesC_INCLUDE_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/libE57Format/include)
 target_link_libraries(E57Converter ${XercesC_LIBRARY})
 target_link_libraries(E57Converter E57Format)
