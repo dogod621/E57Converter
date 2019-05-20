@@ -36,14 +36,14 @@ Test E57 Data from https://lasers.leica-geosystems.com/blk360-data-set-downloads
 				-dst
 					output file, for this example is a not exist folder ( You must give a not exist folder for create PCL OutOfCoreOctree ).
 					
-				-res 2: 
-					means node dimension of the octree is 5 meters.
+				-res: 
+					means node dimension of the octree, for this exammple is 5 meters.
 					
-				-min "-20 -20 -20": 
-					means AABB xyz of octree minimum is -100 meter.
+				-min: 
+					means AABB xyz of octree minimum, for this exammple is -100 meter.
 					
-				-max "20 20 20": 
-					means AABB xyz of octree maximum is 100 meter.
+				-max: 
+					means AABB xyz of octree maximum, for this exammple is 100 meter.
 					
 				-samplePercent 
 					sets the sampling percent for constructing LODs.
