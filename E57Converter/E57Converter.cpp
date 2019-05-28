@@ -137,15 +137,9 @@ namespace pcl
 		//
 		E57CoodSys cs = E57CoodSys::UNKNOWN;
 		Eigen::Matrix4d transform = Eigen::Matrix4d::Identity();
-		Eigen::Matrix4d pointXYZRecover = Eigen::Matrix4d::Identity();
-		Eigen::Matrix4d pointRGBRecover = Eigen::Matrix4d::Identity();
-		Eigen::Vector2d pointIRecover = Eigen::Vector2d(1.f, 0.f);
 		bool hasPointXYZ = false;
 		bool hasPointRGB = false;
 		bool hasPointI = false;
-		bool pointXYZNeedRecover = false;
-		bool pointRGBNeedRecover = false;
-		bool pointINeedRecover = false;
 		std::vector<e57::SourceDestBuffer> sdBuffers;
 		std::vector<float> x;
 		std::vector<float> y;
@@ -222,9 +216,9 @@ namespace pcl
 					x.resize(scanPoints.childCount());
 					y.resize(scanPoints.childCount());
 					z.resize(scanPoints.childCount());
-					sdBuffers.push_back(e57::SourceDestBuffer(imf, "cartesianX", &x[0], scanPoints.childCount(), true));
-					sdBuffers.push_back(e57::SourceDestBuffer(imf, "cartesianY", &y[0], scanPoints.childCount(), true));
-					sdBuffers.push_back(e57::SourceDestBuffer(imf, "cartesianZ", &z[0], scanPoints.childCount(), true));
+					sdBuffers.push_back(e57::SourceDestBuffer(imf, "cartesianX", &x[0], scanPoints.childCount(), true, true));
+					sdBuffers.push_back(e57::SourceDestBuffer(imf, "cartesianY", &y[0], scanPoints.childCount(), true, true));
+					sdBuffers.push_back(e57::SourceDestBuffer(imf, "cartesianZ", &z[0], scanPoints.childCount(), true, true));
 
 				}
 
@@ -239,9 +233,9 @@ namespace pcl
 					x.resize(scanPoints.childCount());
 					y.resize(scanPoints.childCount());
 					z.resize(scanPoints.childCount());
-					sdBuffers.push_back(e57::SourceDestBuffer(imf, "sphericalRange", &x[0], scanPoints.childCount(), true));
-					sdBuffers.push_back(e57::SourceDestBuffer(imf, "sphericalAzimuth", &y[0], scanPoints.childCount(), true));
-					sdBuffers.push_back(e57::SourceDestBuffer(imf, "sphericalElevation", &z[0], scanPoints.childCount(), true));
+					sdBuffers.push_back(e57::SourceDestBuffer(imf, "sphericalRange", &x[0], scanPoints.childCount(), true, true));
+					sdBuffers.push_back(e57::SourceDestBuffer(imf, "sphericalAzimuth", &y[0], scanPoints.childCount(), true, true));
+					sdBuffers.push_back(e57::SourceDestBuffer(imf, "sphericalElevation", &z[0], scanPoints.childCount(), true, true));
 
 				}
 
@@ -255,9 +249,9 @@ namespace pcl
 					r.resize(scanPoints.childCount());
 					g.resize(scanPoints.childCount());
 					b.resize(scanPoints.childCount());
-					sdBuffers.push_back(e57::SourceDestBuffer(imf, "colorRed", &r[0], scanPoints.childCount(), true));
-					sdBuffers.push_back(e57::SourceDestBuffer(imf, "colorGreen", &g[0], scanPoints.childCount(), true));
-					sdBuffers.push_back(e57::SourceDestBuffer(imf, "colorBlue", &b[0], scanPoints.childCount(), true));
+					sdBuffers.push_back(e57::SourceDestBuffer(imf, "colorRed", &r[0], scanPoints.childCount(), true, true));
+					sdBuffers.push_back(e57::SourceDestBuffer(imf, "colorGreen", &g[0], scanPoints.childCount(), true, true));
+					sdBuffers.push_back(e57::SourceDestBuffer(imf, "colorBlue", &b[0], scanPoints.childCount(), true, true));
 				}
 
 				if (proto.isDefined("intensity"))
@@ -266,80 +260,8 @@ namespace pcl
 					protoINode = std::shared_ptr<e57::Node>(new e57::Node(proto.get("intensity")));
 
 					i.resize(scanPoints.childCount());
-					sdBuffers.push_back(e57::SourceDestBuffer(imf, "intensity", &i[0], scanPoints.childCount(), true));
+					sdBuffers.push_back(e57::SourceDestBuffer(imf, "intensity", &i[0], scanPoints.childCount(), true, true));
 
-				}
-
-				if (hasPointXYZ)
-				{
-					if ((protoXNode->type() == protoYNode->type()) && (protoYNode->type() == protoZNode->type()))
-					{
-						if (protoXNode->type() == e57::NodeType::E57_SCALED_INTEGER)
-						{
-							e57::ScaledIntegerNode protoX(*protoXNode);
-							e57::ScaledIntegerNode protoY(*protoYNode);
-							e57::ScaledIntegerNode protoZ(*protoZNode);
-
-							pointXYZRecover(0, 0) = protoX.scale();
-							pointXYZRecover(1, 1) = protoY.scale();
-							pointXYZRecover(2, 2) = protoZ.scale();
-							pointXYZRecover.block(0, 3, 3, 1) = Eigen::Vector3d(protoX.offset(), protoY.offset(), protoZ.offset());
-							pointXYZNeedRecover = true;
-
-							std::stringstream ss;
-							ss << "[pcl::%s::ReadScan] Scan pointXYZRecover - " << pointXYZRecover << ".\n";
-							PCL_INFO(ss.str().c_str(), "E57Converter");
-						}
-					}
-					else
-					{
-						hasPointXYZ = false;
-						PCL_WARN("[pcl::%s::ReadScan] Scan points XYZ type is not consistent.\n", "E57Converter");
-					}
-				}
-
-				if (hasPointRGB)
-				{
-					if((protoRNode->type() == protoGNode->type()) && (protoGNode->type() == protoBNode->type()))
-					{
-						if (protoRNode->type() == e57::NodeType::E57_SCALED_INTEGER)
-						{
-							e57::ScaledIntegerNode protoR(*protoRNode);
-							e57::ScaledIntegerNode protoG(*protoGNode);
-							e57::ScaledIntegerNode protoB(*protoBNode);
-
-							pointRGBRecover(0, 0) = protoR.scale();
-							pointRGBRecover(1, 1) = protoG.scale();
-							pointRGBRecover(2, 2) = protoB.scale();
-							pointRGBRecover.block(0, 3, 3, 1) = Eigen::Vector3d(protoR.offset(), protoG.offset(), protoB.offset());
-							pointRGBNeedRecover = true;
-
-							std::stringstream ss;
-							ss << "[pcl::%s::ReadScan] Scan pointRGBRecover - " << pointRGBRecover << ".\n";
-							PCL_INFO(ss.str().c_str(), "E57Converter");
-						}
-					}
-					else
-					{
-						hasPointRGB = false;
-						PCL_WARN("[pcl::%s::ReadScan] Scan points RGB type is not consistent.\n", "E57Converter");
-					}
-				}
-
-				if (hasPointI)
-				{
-					if (protoINode->type() == e57::NodeType::E57_SCALED_INTEGER)
-					{
-						e57::ScaledIntegerNode protoI(*protoINode);
-
-						pointIRecover.x() = protoI.scale();
-						pointIRecover.y() = protoI.offset();
-						pointINeedRecover = true;
-
-						std::stringstream ss;
-						ss << "[pcl::%s::ReadScan] Scan pointIRecover - " << pointIRecover << ".\n";
-						PCL_INFO(ss.str().c_str(), "E57Converter");
-					}
 				}
 
 				//
@@ -357,8 +279,6 @@ namespace pcl
 							if (hasPointXYZ)
 							{
 								Eigen::Vector4d xyz(x[pi], y[pi], z[pi], 1.0);
-								if (pointXYZNeedRecover)
-									xyz = pointXYZRecover * xyz;
 								
 								switch (cs)
 								{
@@ -389,20 +309,9 @@ namespace pcl
 
 							if (hasPointRGB)
 							{
-								if (pointRGBNeedRecover)
-								{
-									Eigen::Vector4d rgb(r[pi], g[pi], b[pi], 1.0);
-									rgb = pointRGBRecover * rgb;
-									sp.r = rgb.x();
-									sp.g = rgb.y();
-									sp.b = rgb.z();
-								}
-								else
-								{
-									sp.r = r[pi];
-									sp.g = g[pi];
-									sp.b = b[pi];
-								}
+								sp.r = r[pi];
+								sp.g = g[pi];
+								sp.b = b[pi];
 							}
 							else
 							{
@@ -413,10 +322,7 @@ namespace pcl
 
 							if (hasPointI)
 							{
-								if (pointINeedRecover)
-									sp.intensity = ((double)i[pi] + pointIRecover.y())*pointIRecover.x();
-								else
-									sp.intensity = i[pi];
+								sp.intensity = i[pi];
 							}
 							sp.scanID = scanID;
 
