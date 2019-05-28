@@ -277,27 +277,25 @@ namespace pcl
 							PointE57 sp;
 
 							if (hasPointXYZ)
-							{
-								Eigen::Vector4d xyz(x[pi], y[pi], z[pi], 1.0);
-								
+							{								
 								switch (cs)
 								{
 								case E57CoodSys::XYZ:
-									sp.x = xyz.x();
-									sp.y = xyz.y();
-									sp.z = xyz.z();
+									sp.x = x[pi];
+									sp.y = y[pi];
+									sp.z = z[pi];
 									break;
 
 								case E57CoodSys::RAE:
 								{
-									double s_t = std::sin(xyz.z());
-									double s_p = std::sin(xyz.y());
-									double c_t = std::cos(xyz.z());
-									double c_p = std::cos(xyz.y());
+									double s_t = std::sin(z[pi]);
+									double s_p = std::sin(y[pi]);
+									double c_t = std::cos(z[pi]);
+									double c_p = std::cos(y[pi]);
 
-									sp.x = xyz.x() * c_t * c_p;
-									sp.y = xyz.x() * c_t * s_p;
-									sp.z = xyz.x() * s_t;
+									sp.x = x[pi] * c_t * c_p;
+									sp.y = x[pi] * c_t * s_p;
+									sp.z = x[pi] * s_t;
 								}
 								break;
 
