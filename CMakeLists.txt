@@ -39,7 +39,7 @@ endif()
 if(TARGET createapidocs)
 	list(APPEND XercesC_Documentation_TARGETS createapidocs)
 endif()
-set_target_properties(${XercesC_Documentation_TARGETS} PROPERTIES COMPILE_FLAGS "/wd4819" FOLDER "XercesC/Documentation")
+set_target_properties(${XercesC_Documentation_TARGETS} PROPERTIES FOLDER "XercesC/Documentation")
 
 # XercesC Library
 set(XercesC_Library_TARGETS)
@@ -50,7 +50,7 @@ endif()
 if(TARGET gencat)
 	list(APPEND XercesC_Library_TARGETS gencat)
 endif()
-set_target_properties(${XercesC_Library_TARGETS} PROPERTIES COMPILE_FLAGS "/wd4819" FOLDER "XercesC/Library")
+set_target_properties(${XercesC_Library_TARGETS} PROPERTIES FOLDER "XercesC/Library")
 
 # XercesC Tests
 set(XercesC_Tests_TARGETS)
@@ -74,7 +74,7 @@ endif()
 if(TARGET Char16Test)
 	list(APPEND XercesC_Tests_TARGETS Char16Test)
 endif()
-set_target_properties(${XercesC_Tests_TARGETS} PROPERTIES COMPILE_FLAGS "/wd4819" FOLDER "XercesC/Tests")
+set_target_properties(${XercesC_Tests_TARGETS} PROPERTIES FOLDER "XercesC/Tests")
 
 # XercesC Samples
 set(XercesC_Samples_TARGETS)
@@ -95,7 +95,7 @@ list(APPEND XercesC_Samples_TARGETS
 	SEnumVal
 	StdInParse
 	XInclude)
-set_target_properties(${XercesC_Samples_TARGETS} PROPERTIES COMPILE_FLAGS "/wd4819" FOLDER "XercesC/Samples")
+set_target_properties(${XercesC_Samples_TARGETS} PROPERTIES FOLDER "XercesC/Samples")
 
 # E57
 if ( WIN32 )
@@ -104,7 +104,7 @@ endif()
 add_subdirectory (libE57Format)
 set(libE57Format_TARGETS)
 list(APPEND libE57Format_TARGETS E57Format)
-set_target_properties(${libE57Format_TARGETS} PROPERTIES COMPILE_FLAGS "/wd4819" FOLDER "libE57Format")
+set_target_properties(${libE57Format_TARGETS} PROPERTIES FOLDER "libE57Format")
 
 # E57Converter
 add_subdirectory("E57Converter")
