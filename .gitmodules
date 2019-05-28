@@ -1,3 +1,6 @@
 [submodule "libE57Format"]
 	path = libE57Format
 	url = https://github.com/asmaloney/libE57Format.git
+[submodule "Xerces-C"]
+	path = Xerces-C
+	url = https://github.com/apache/xerces-c.git

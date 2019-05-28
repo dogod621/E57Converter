@@ -2,16 +2,16 @@
 Convert E57 point cloud format to PCL pcd format 
 
 # Submodules
+	Xerces-C (for libE57Format):https://github.com/apache/xerces-c
 	libE57Format: https://github.com/asmaloney/libE57Format
 
 # Dependency
 	PCL: https://github.com/PointCloudLibrary/pcl
-	Xerces-C (for libE57Format):https://github.com/apache/xerces-c
 
 # How to build
 	1. clone with submodul: git clone --recursive https://github.com/dogod621/E57Converter.git
 	2. build the project: use CMAKE (PS. you may want to set USING_STATIC_XERCES ON)
-	
+
 # How to use
 Demo example:<br>
 Test E57 Data from https://lasers.leica-geosystems.com/blk360-data-set-downloads
