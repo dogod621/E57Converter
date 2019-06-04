@@ -217,7 +217,7 @@ namespace e57
 		}
 	}
 
-	void Converter::ExportToPCD(const double voxelUnit, const unsigned int searchRadiusNumVoxels, pcl::PointCloud<PointPCD>& out)
+	void Converter::ExportToPCD(const double voxelUnit, const unsigned int searchRadiusNumVoxels, const int polynomialOrder, pcl::PointCloud<PointPCD>& out)
 	{
 		try
 		{
@@ -226,7 +226,7 @@ namespace e57
 			pcl::StatisticalOutlierRemoval<PointE57> olr;
 			pcl::MovingLeastSquares<PointE57, PointPCD> mls;
 			pcl::CropBox<PointPCD> cb;
-
+			
 			//
 			{
 				vf.setLeafSize(voxelUnit, voxelUnit, voxelUnit);
@@ -238,7 +238,7 @@ namespace e57
 				//
 				pcl::search::KdTree<PointE57>::Ptr tree(new pcl::search::KdTree<PointE57>());
 				mls.setComputeNormals(PCD_CAN_CONTAIN_NORMAL);
-				mls.setPolynomialOrder(2);
+				mls.setPolynomialOrder(polynomialOrder);
 				mls.setSearchMethod(tree);
 				mls.setSearchRadius(searchRadius);
 
