@@ -20,6 +20,7 @@
 #include <pcl/pcl_macros.h>
 #include <pcl/outofcore/outofcore_impl.h>
 #include <pcl/features/normal_3d.h>
+#include <pcl/surface/mls.h>
 
 #include "nlohmann/json.hpp"
 
@@ -222,10 +223,8 @@ namespace e57
 		{
 			double searchRadius = voxelUnit * searchRadiusNumVoxels;
 			pcl::VoxelGrid<PointE57> vf;
-			pcl::RadiusOutlierRemoval<PointE57> ror;
-			pcl::NormalEstimation<PointE57, PointPCD> ne;
-
-			pcl::StatisticalOutlierRemoval<PointPCD> sor;
+			pcl::StatisticalOutlierRemoval<PointE57> olr;
+			pcl::MovingLeastSquares<PointE57, PointPCD> mls;
 			pcl::CropBox<PointPCD> cb;
 
 			//
@@ -233,17 +232,17 @@ namespace e57
 				vf.setLeafSize(voxelUnit, voxelUnit, voxelUnit);
 
 				//
-				ror.setRadiusSearch(searchRadius);
-				ror.setMinNeighborsInRadius((searchRadius * searchRadius)*0.1);
+				olr.setMeanK(int(searchRadiusNumVoxels * searchRadiusNumVoxels));
+				olr.setStddevMulThresh(1.0);
 
 				//
 				pcl::search::KdTree<PointE57>::Ptr tree(new pcl::search::KdTree<PointE57>());
-				ne.setSearchMethod(tree);
-				ne.setRadiusSearch(searchRadius);
+				mls.setComputeNormals(PCD_CAN_CONTAIN_NORMAL);
+				mls.setPolynomialOrder(2);
+				mls.setSearchMethod(tree);
+				mls.setSearchRadius(searchRadius);
 
 				//
-				sor.setMeanK(int(searchRadius * searchRadius));
-				sor.setStddevMulThresh(1.0);
 			}
 
 			//
@@ -272,107 +271,90 @@ namespace e57
 						PCL_INFO(ss.str().c_str(), "Converter");
 					}
 
-					// Query Points
-					Eigen::Vector3d minBB;
-					Eigen::Vector3d maxBB;
-					Eigen::Vector3d extMinBB;
-					Eigen::Vector3d extMaxBB;
-					Eigen::Vector3d extXYZ (searchRadius, searchRadius, searchRadius);
-					(*it)->getBoundingBox(minBB, maxBB);
-					std::size_t depth = (*it)->getDepth();
-					extMinBB = minBB - extXYZ;
-					extMaxBB = maxBB + extXYZ;
-					cb.setMin(Eigen::Vector4f(minBB.x(), minBB.y(), minBB.z(), 1.0));
-					cb.setMax(Eigen::Vector4f(maxBB.x(), maxBB.y(), maxBB.z(), 1.0));
-
 					pcl::PointCloud<PointPCD>::Ptr pcdCloud(new pcl::PointCloud<PointPCD>);
 					{
-						pcl::PointCloud<PointPCD>::Ptr pcdCloud_VF_ROR(new pcl::PointCloud<PointPCD>);
+						// Query
+						pcl::PointCloud<PointE57>::Ptr e57Cloud(new pcl::PointCloud<PointE57>);
 						{
+							// Query Points
+							Eigen::Vector3d minBB;
+							Eigen::Vector3d maxBB;
+							Eigen::Vector3d extMinBB;
+							Eigen::Vector3d extMaxBB;
+							Eigen::Vector3d extXYZ(searchRadius, searchRadius, searchRadius);
+							(*it)->getBoundingBox(minBB, maxBB);
+							std::size_t depth = (*it)->getDepth();
+							extMinBB = minBB - extXYZ;
+							extMaxBB = maxBB + extXYZ;
+							cb.setMin(Eigen::Vector4f(minBB.x(), minBB.y(), minBB.z(), 1.0));
+							cb.setMax(Eigen::Vector4f(maxBB.x(), maxBB.y(), maxBB.z(), 1.0));
+
 							{
 								std::stringstream ss;
 								ss << "[e57::%s::ExportToPCD] Query - minBB, maxBB, depth, extMinBB, extMaxBB: " << minBB << ", " << maxBB << ", " << depth << ", " << extMinBB << ", " << extMaxBB << ".\n";
 								PCL_INFO(ss.str().c_str(), "Converter");
 							}
-							pcl::PointCloud<PointE57>::Ptr e57Cloud(new pcl::PointCloud<PointE57>);
-							{
-								pcl::PCLPointCloud2::Ptr blob(new pcl::PCLPointCloud2);
-								oct->queryBoundingBox(extMinBB, extMaxBB, depth, blob);
-								pcl::fromPCLPointCloud2(*blob, *e57Cloud);
-							}
 
-							pcl::PointCloud<PointE57>::Ptr e57Cloud_VF(new pcl::PointCloud<PointE57>);
-							pcl::PointCloud<PointE57>::Ptr e57Cloud_VF_ROR(new pcl::PointCloud<PointE57>);
-							{
-								// DownSampling
-								PCL_INFO("[e57::%s::ExportToPCD] DownSampling.\n", "Converter");
-								vf.setInputCloud(e57Cloud);
-								vf.filter(*e57Cloud_VF);
-								{
-									std::stringstream ss;
-									ss << "[e57::%s::ExportToPCD] DownSampling - inSize, outSize: " << e57Cloud->size() << ", " << e57Cloud_VF->size() << ".\n";
-									PCL_INFO(ss.str().c_str(), "Converter");
-								}
-
-								//RadiusOutlierRemoval
-								PCL_INFO("[e57::%s::ExportToPCD] RadiusOutlierRemoval.\n", "Converter");
-								vf.setInputCloud(e57Cloud_VF);
-								vf.filter(*e57Cloud_VF_ROR);
-								{
-									std::stringstream ss;
-									ss << "[e57::%s::ExportToPCD] DownSampling - inSize, outSize: " << e57Cloud_VF->size() << ", " << e57Cloud_VF_ROR->size() << ".\n";
-									PCL_INFO(ss.str().c_str(), "Converter");
-								}
-							}
-
-							// Estimat Normal
-							pcdCloud_VF_ROR->resize(e57Cloud_VF_ROR->size());
-							for (std::size_t pi = 0; pi < e57Cloud_VF_ROR->size(); ++pi)
-								(*pcdCloud_VF_ROR)[pi].FromPointE57((*e57Cloud_VF_ROR)[pi]);
-
-							if (PCD_CAN_CONTAIN_NORMAL)
-							{
-								PCL_INFO("[e57::%s::ExportToPCD] NormalEstimation.\n", "Converter");
-								ne.setInputCloud(e57Cloud_VF_ROR);
-								ne.setSearchSurface(e57Cloud_VF);
-								ne.compute(*pcdCloud_VF_ROR);
-							}
+							pcl::PCLPointCloud2::Ptr blob(new pcl::PCLPointCloud2);
+							oct->queryBoundingBox(extMinBB, extMaxBB, depth, blob);
+							pcl::fromPCLPointCloud2(*blob, *e57Cloud);
 						}
 
-						// Outlier Removal
-						pcl::PointCloud<PointPCD>::Ptr pcdCloud_VF_ROR_SOR(new pcl::PointCloud<PointPCD>);
+						// Down Sampling
+						pcl::PointCloud<PointE57>::Ptr e57Cloud_VF(new pcl::PointCloud<PointE57>);
+						{
+							PCL_INFO("[e57::%s::ExportToPCD] Down Sampling.\n", "Converter");
+							vf.setInputCloud(e57Cloud);
+							vf.filter(*e57Cloud_VF);
+								
+							std::stringstream ss;
+							ss << "[e57::%s::ExportToPCD] Down Sampling - inSize, outSize: " << e57Cloud->size() << ", " << e57Cloud_VF->size() << ".\n";
+							PCL_INFO(ss.str().c_str(), "Converter");
+						}
+
+						//Outlier Removal
+						pcl::PointCloud<PointE57>::Ptr e57Cloud_VF_OLR(new pcl::PointCloud<PointE57>);
 						{
 							PCL_INFO("[e57::%s::ExportToPCD] Outlier Removal.\n", "Converter");
-							sor.setInputCloud(pcdCloud_VF_ROR);
-							sor.filter(*pcdCloud_VF_ROR_SOR);
-							{
-								std::stringstream ss;
-								ss << "[e57::%s::ExportToPCD] Outlier Removal - inSize, outSize: " << pcdCloud_VF_ROR->size() << ", " << pcdCloud_VF_ROR_SOR->size() << ".\n";
-								PCL_INFO(ss.str().c_str(), "Converter");
-							}
+							olr.setInputCloud(e57Cloud_VF);
+							olr.filter(*e57Cloud_VF_OLR);
+							
+							std::stringstream ss;
+							ss << "[e57::%s::ExportToPCD] Outlier Removal - inSize, outSize: " << e57Cloud_VF->size() << ", " << e57Cloud_VF_OLR->size() << ".\n";
+							PCL_INFO(ss.str().c_str(), "Converter");
+						}
+
+
+						// Estimat Surface
+						pcl::PointCloud<PointPCD>::Ptr pcdCloud_VF_OLR(new pcl::PointCloud<PointPCD>);
+						{
+							pcdCloud_VF_OLR->resize(e57Cloud_VF_OLR->size());
+							for (std::size_t pi = 0; pi < e57Cloud_VF_OLR->size(); ++pi)
+								(*pcdCloud_VF_OLR)[pi].FromPointE57((*e57Cloud_VF_OLR)[pi]);
+							PCL_INFO("[e57::%s::ExportToPCD] Estimat Surface.\n", "Converter");
+							mls.setInputCloud(e57Cloud_VF_OLR);
+							mls.process(*pcdCloud_VF_OLR);
 						}
 
 						// Crop Box
 						{
 							PCL_INFO("[e57::%s::ExportToPCD] Crop Box.\n", "Converter");
-							cb.setInputCloud(pcdCloud_VF_ROR_SOR);
+							cb.setInputCloud(pcdCloud_VF_OLR);
 							cb.filter(*pcdCloud);
 							{
 								std::stringstream ss;
-								ss << "[e57::%s::ExportToPCD] Crop Box - inSize, outSize: " << pcdCloud_VF_ROR_SOR->size() << ", " << pcdCloud->size() << ".\n";
+								ss << "[e57::%s::ExportToPCD] Crop Box - inSize, outSize: " << pcdCloud_VF_OLR->size() << ", " << pcdCloud->size() << ".\n";
 								PCL_INFO(ss.str().c_str(), "Converter");
 							}
 						}
 					}
 
 					// Merge
+					out += (*pcdCloud);
 					{
-						out += (*pcdCloud);
-						{
-							std::stringstream ss;
-							ss << "[e57::%s::ExportToPCD] Process leaf " << leafID << " end, final cloud total " << out.size() << " points.\n";
-							PCL_INFO(ss.str().c_str(), "Converter");
-						}
+						std::stringstream ss;
+						ss << "[e57::%s::ExportToPCD] Process leaf " << leafID << " end, final cloud total " << out.size() << " points.\n";
+						PCL_INFO(ss.str().c_str(), "Converter");
 					}
 					leafID++;
 				}
