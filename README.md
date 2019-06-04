@@ -38,7 +38,7 @@ Test E57 Data from https://lasers.leica-geosystems.com/blk360-data-set-downloads
 		
 		1. Convert .e57 to PCL OutOfCoreOctree: 
 			Command:
-				E57Converter.exe -convert -src "D:/src.e57" -dst "D:/dst/" -res 5 -min "-100 -100 -100" -max "100 100 100"
+				E57Converter.exe -convert -src "D:/src.e57" -dst "D:/dst/" -res 5 -min "-100 -100 -100" -max "100 100 100" -minRGB 5
 		
 			Paramerte description:
 				-convert:
@@ -63,9 +63,12 @@ Test E57 Data from https://lasers.leica-geosystems.com/blk360-data-set-downloads
 					sets the sampling percent for constructing LODs.
 					(if not given, default is 0.125.)
 					
+				-minRGB
+					Remove the points that none of the RGB values are greater or equal than minRGB. In this case, this is used to remove BLK360's black scan noise points. In general, set this to zero.
+					
 		2. Convert PCL OutOfCoreOctree to .pcd:
 			Command:
-				E57Converter.exe -convert -src "D:/dst/" -dst "D:/dst.pcd" -voxelUnit 0.05
+				E57Converter.exe -convert -src "D:/dst/" -dst "D:/dst.pcd" -voxelUnit 0.05 -
 				
 			Paramerte description:
 				-convert:

@@ -63,7 +63,7 @@ namespace e57
 		}
 	}
 
-	void Converter::LoadE57(const boost::filesystem::path& e57Path, const double LODSamplePercent)
+	void Converter::LoadE57(const boost::filesystem::path& e57Path, const double LODSamplePercent, const uint8_t minRGB)
 	{
 		try
 		{
@@ -98,6 +98,7 @@ namespace e57
 
 				// To OCT
 				{
+					//
 					{
 						std::stringstream ss;
 						ss << "[e57::%s::Converter] OutOfCoreOctree addPointCloud - scann" << scanID << ".\n";
@@ -105,10 +106,20 @@ namespace e57
 					}
 					pcl::PointCloud<PointE57>::Ptr scanCloud = pcl::PointCloud<PointE57>::Ptr(new pcl::PointCloud<PointE57>);
 					scan.ToPointCloud(*scanCloud);
-					oct->addPointCloud(scanCloud);
+
+					// Remove black scan noise
+					pcl::PointCloud<PointE57>::Ptr scanCloud_removeBlack = pcl::PointCloud<PointE57>::Ptr(new pcl::PointCloud<PointE57>);
+					scanCloud_removeBlack->reserve(scanCloud->size());
+					for (std::size_t pi = 0; pi < scanCloud->size(); ++pi)
+					{
+						PointE57& inP = (*scanCloud)[pi];
+						if (inP.r >= minRGB || inP.g >= minRGB || inP.b >= minRGB)
+							scanCloud_removeBlack->push_back(inP);
+					}
+					oct->addPointCloud(scanCloud_removeBlack);
 
 					// Save scan info
-					scanJson[scan.ID]["numValidPoints"] = scanCloud->size();
+					scanJson[scan.ID]["numValidPoints"] = scanCloud_removeBlack->size();
 				}
 			}
 
@@ -205,7 +216,7 @@ namespace e57
 		}
 	}
 
-	void Converter::ExportToPCD(const double voxelUnit, const unsigned int searchRadiusNumVoxels, const uint8_t minRGB, pcl::PointCloud<PointPCD>& out)
+	void Converter::ExportToPCD(const double voxelUnit, const unsigned int searchRadiusNumVoxels, pcl::PointCloud<PointPCD>& out)
 	{
 		try
 		{
@@ -214,7 +225,6 @@ namespace e57
 			pcl::RadiusOutlierRemoval<PointE57> ror;
 			pcl::NormalEstimation<PointE57, PointPCD> ne;
 
-			//pcl::ConditionalRemoval<PointPCD> cor;
 			pcl::StatisticalOutlierRemoval<PointPCD> sor;
 			pcl::CropBox<PointPCD> cb;
 
@@ -230,15 +240,6 @@ namespace e57
 				pcl::search::KdTree<PointE57>::Ptr tree(new pcl::search::KdTree<PointE57>());
 				ne.setSearchMethod(tree);
 				ne.setRadiusSearch(searchRadius);
-
-				//
-				/*pcl::ConditionOr<PointPCD>::Ptr cond(new pcl::ConditionOr<PointPCD>());
-				cond->addComparison(pcl::FieldComparison<PointPCD>::ConstPtr(new pcl::FieldComparison<PointPCD>("r", pcl::ComparisonOps::GT, minRGB)));
-				cond->addComparison(pcl::FieldComparison<PointPCD>::ConstPtr(new pcl::FieldComparison<PointPCD>("g", pcl::ComparisonOps::GT, minRGB)));
-				cond->addComparison(pcl::FieldComparison<PointPCD>::ConstPtr(new pcl::FieldComparison<PointPCD>("b", pcl::ComparisonOps::GT, minRGB)));
-				cor.setCondition(cond);
-				cor.setKeepOrganized(false);
-				*/
 
 				//
 				sor.setMeanK(int(searchRadius * searchRadius));
@@ -366,24 +367,7 @@ namespace e57
 
 					// Merge
 					{
-						PCL_INFO("[e57::%s::ExportToPCD] Remove black scan points.\n", "Converter");
-
-						pcl::PointCloud<PointPCD>::Ptr pcdCloud_removeScanBlack(new pcl::PointCloud<PointPCD>);
-						pcdCloud_removeScanBlack->reserve(pcdCloud->size());
-						for (std::size_t pi = 0; pi < pcdCloud->size(); ++pi)
-						{
-							PointPCD& inP = (*pcdCloud)[pi];
-							if (inP.r >= minRGB || inP.g >= minRGB || inP.b >= minRGB)
-								pcdCloud_removeScanBlack->push_back(inP);
-						}
-
-						{
-							std::stringstream ss;
-							ss << "[e57::%s::ExportToPCD] Remove black scan points - inSize, outSize: " << pcdCloud->size() << ", " << pcdCloud_removeScanBlack->size() << ".\n";
-							PCL_INFO(ss.str().c_str(), "Converter");
-						}
-
-						out += (*pcdCloud_removeScanBlack);
+						out += (*pcdCloud);
 						{
 							std::stringstream ss;
 							ss << "[e57::%s::ExportToPCD] Process leaf " << leafID << " end, final cloud total " << out.size() << " points.\n";
