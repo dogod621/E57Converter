@@ -1,415 +1,192 @@
 #pragma once
 
-#include "E57Converter.h"
-
-#include <vector>
-#include <iomanip>
 #include <fstream>
-#include <assert.h>
-#include <cmath>
+#include <vector>
+
+#include "E57Utils.h"
+#include "E57Converter.h"
 
 #include <pcl/common/common.h>
 #include <pcl/common/io.h>
 #include <pcl/common/transforms.h>
 #include <pcl/filters/filter.h>
+#include <pcl/filters/crop_box.h>
 #include <pcl/filters/voxel_grid.h>
+#include <pcl/filters/radius_outlier_removal.h>
+#include <pcl/filters/conditional_removal.h>
+#include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/io/io.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/pcl_macros.h>
+#include <pcl/outofcore/outofcore_impl.h>
+#include <pcl/features/normal_3d.h>
+
+#include "nlohmann/json.hpp"
+
+//#include "ReCapHDRI.h"
 
 namespace e57
 {
-#define TYPE_SPACE std::left << std::setw(6) 
-#define NAME_SPACE std::left << std::setw(12) 
-#define NUMBER_SPACE std::left << std::setprecision(6) << std::setw(9) 
-
-	std::string NodeTypeStr(NodeType t)
-	{
-		switch (t)
-		{
-		case e57::NodeType::E57_STRUCTURE: return std::string("E57_STRUCTURE");
-		case e57::NodeType::E57_VECTOR: return std::string("E57_VECTOR");
-		case e57::NodeType::E57_COMPRESSED_VECTOR: return std::string("E57_COMPRESSED_VECTOR");
-		case e57::NodeType::E57_INTEGER: return std::string("E57_INTEGER");
-		case e57::NodeType::E57_SCALED_INTEGER: return std::string("E57_SCALED_INTEGER");
-		case e57::NodeType::E57_FLOAT: return std::string("E57_FLOAT");
-		case e57::NodeType::E57_STRING: return std::string("E57_STRING");
-		case e57::NodeType::E57_BLOB: return std::string("E57_BLOB");
-		default: return std::string("UNKNOWN");
-		}
-	}
-
-	void ParseNode(std::size_t pDepth, const e57::StructureNode& pNode)
-	{
-		std::cout << std::string(pDepth, '\t') << TYPE_SPACE << "STRUCT" << "*" << NAME_SPACE << pNode.elementName() << " : " << NUMBER_SPACE << pNode.childCount() << std::endl;
-		std::cout << std::string(pDepth, '\t') << "{" << std::endl;
-		pDepth++;
-
-		//
-		for (int64_t i = 0; i < pNode.childCount(); ++i)
-			ParseNode(pDepth, pNode.get(i));
-
-		//
-		std::cout << std::string(pDepth - 1, '\t') << "}" << std::endl;
-	}
-
-	void ParseNode(std::size_t pDepth, const e57::VectorNode& pNode)
-	{
-		std::cout << std::string(pDepth, '\t') << TYPE_SPACE << "VEC" << "*" << NAME_SPACE << pNode.elementName() << " : " << NUMBER_SPACE << pNode.childCount() << std::endl;
-		std::cout << std::string(pDepth, '\t') << "{" << std::endl;
-		pDepth++;
-
-		//
-		for (int64_t i = 0; i < pNode.childCount(); ++i)
-			ParseNode(pDepth, pNode.get(i));
-
-		//
-		std::cout << std::string(pDepth - 1, '\t') << "}" << std::endl;
-	}
-
-	void ParseNode(std::size_t pDepth, const e57::CompressedVectorNode& pNode)
-	{
-		std::cout << std::string(pDepth, '\t') << TYPE_SPACE << "CP_VEV" << "*" << NAME_SPACE << pNode.elementName() << " : " << NUMBER_SPACE << pNode.childCount() << std::endl;
-		std::cout << std::string(pDepth, '\t') << "{" << std::endl;
-		pDepth++;
-
-		//
-		ParseNode(pDepth, pNode.prototype());
-		ParseNode(pDepth, pNode.codecs());
-
-		//
-		std::cout << std::string(pDepth - 1, '\t') << "}" << std::endl;
-	}
-
-	void ParseNode(std::size_t pDepth, const e57::IntegerNode& pNode)
-	{
-		std::cout << std::string(pDepth, '\t') << TYPE_SPACE << "INT" << "*" << NAME_SPACE << pNode.elementName() << " : " << NUMBER_SPACE << pNode.value() << std::endl;
-	}
-
-	void ParseNode(std::size_t pDepth, const e57::ScaledIntegerNode& pNode)
-	{
-		std::cout << std::string(pDepth, '\t') << TYPE_SPACE << "SC_INT" << "*" << NAME_SPACE << pNode.elementName() << " : " << NUMBER_SPACE << pNode.scaledValue() << ", " << pNode.rawValue() << ", " << pNode.scale() << ", " << pNode.offset() << std::endl;
-	}
-
-	void ParseNode(std::size_t pDepth, const e57::FloatNode& pNode)
-	{
-		std::cout << std::string(pDepth, '\t') << TYPE_SPACE << "FLOAT" << "*" << NAME_SPACE << pNode.elementName() << " : " << NUMBER_SPACE << pNode.value() << std::endl;
-	}
-
-	void ParseNode(std::size_t pDepth, const e57::StringNode& pNode)
-	{
-		std::cout << std::string(pDepth, '\t') << TYPE_SPACE << "STR" << "*" << NAME_SPACE << pNode.elementName() << " : " << NUMBER_SPACE << pNode.value() << std::endl;
-	}
-
-	void ParseNode(std::size_t pDepth, const e57::BlobNode& pNode)
-	{
-		std::cout << std::string(pDepth, '\t') << TYPE_SPACE << "BLOB" << "*" << NAME_SPACE << pNode.elementName() << " : " << NUMBER_SPACE << pNode.byteCount() << std::endl;
-		std::cout << std::string(pDepth, '\t') << "{" << std::endl;
-		pDepth++;
-
-		//
-		std::cout << std::string(pDepth - 1, '\t') << "}" << std::endl;
-	}
-
-	void ParseNode(std::size_t pDepth, const e57::Node& pNode)
-	{
-		switch (pNode.type())
-		{
-		case e57::NodeType::E57_STRUCTURE: return ParseNode(pDepth, e57::StructureNode(pNode));
-		case e57::NodeType::E57_VECTOR: return ParseNode(pDepth, e57::VectorNode(pNode));
-		case e57::NodeType::E57_COMPRESSED_VECTOR: return ParseNode(pDepth, e57::CompressedVectorNode(pNode));
-		case e57::NodeType::E57_INTEGER: return ParseNode(pDepth, e57::IntegerNode(pNode));
-		case e57::NodeType::E57_SCALED_INTEGER: return ParseNode(pDepth, e57::ScaledIntegerNode(pNode));
-		case e57::NodeType::E57_FLOAT: return ParseNode(pDepth, e57::FloatNode(pNode));
-		case e57::NodeType::E57_STRING: return ParseNode(pDepth, e57::StringNode(pNode));
-		case e57::NodeType::E57_BLOB: return ParseNode(pDepth, e57::BlobNode(pNode));
-		default: return;
-		}
-	}
-}
-
-namespace pcl
-{
-	void E57Converter::ReadScan(const e57::ImageFile& imf, const e57::VectorNode& data3D, int64_t scanID, pcl::PointCloud<PointE57>& scanCloud)
-	{
-		e57::StructureNode scan(data3D.get(scanID));
-
-		//
-		E57CoodSys cs = E57CoodSys::UNKNOWN;
-		Eigen::Matrix4d transform = Eigen::Matrix4d::Identity();
-		bool hasPointXYZ = false;
-		bool hasPointRGB = false;
-		bool hasPointI = false;
-		std::vector<e57::SourceDestBuffer> sdBuffers;
-		std::vector<float> x;
-		std::vector<float> y;
-		std::vector<float> z;
-		std::vector<float> i;
-		std::vector<uint8_t> r;
-		std::vector<uint8_t> g;
-		std::vector<uint8_t> b;
-
-		// Parse pose
-		if (scan.isDefined("pose"))
-		{
-			e57::StructureNode scanPose(scan.get("pose"));
-
-			if (scanPose.isDefined("translation"))
-			{
-				e57::StructureNode scanPoseTranslation(scanPose.get("translation"));
-				transform.block(0, 3, 3, 1) =
-					Eigen::Vector3d(
-						e57::FloatNode(scanPoseTranslation.get("x")).value(),
-						e57::FloatNode(scanPoseTranslation.get("y")).value(),
-						e57::FloatNode(scanPoseTranslation.get("z")).value());
-			}
-			else
-				PCL_WARN("[pcl::%s::ReadScan] Scan didnot define pose translation.\n", "E57Converter");
-
-
-			if (scanPose.isDefined("rotation"))
-			{
-				e57::StructureNode scanPoseRotation(scanPose.get("rotation"));
-
-				transform.block(0, 0, 3, 3) =
-					Eigen::Quaterniond(
-						e57::FloatNode(scanPoseRotation.get("w")).value(),
-						e57::FloatNode(scanPoseRotation.get("x")).value(),
-						e57::FloatNode(scanPoseRotation.get("y")).value(),
-						e57::FloatNode(scanPoseRotation.get("z")).value()).toRotationMatrix();
-			}
-			else
-				PCL_WARN("[pcl::%s::ReadScan] Scan didnot define pose rotation.\n", "E57Converter");
-
-			std::stringstream ss;
-			ss << "[pcl::%s::ReadScan] Scan transform - " << transform << ".\n";
-			PCL_INFO(ss.str().c_str(), "E57Converter");
-		}
-		else
-			PCL_WARN("[pcl::%s::ReadScan] Scan didnot define pose.\n", "E57Converter");
-
-		// Parse scale & offset
-		if (scan.isDefined("points"))
-		{
-			e57::Node scanPointsNode = scan.get("points");
-
-			if (scanPointsNode.type() == e57::NodeType::E57_COMPRESSED_VECTOR)
-			{
-				e57::CompressedVectorNode scanPoints(scanPointsNode);
-				e57::StructureNode proto(scanPoints.prototype());
-				std::shared_ptr<e57::Node> protoXNode;
-				std::shared_ptr<e57::Node> protoYNode;
-				std::shared_ptr<e57::Node> protoZNode;
-				std::shared_ptr<e57::Node> protoRNode;
-				std::shared_ptr<e57::Node> protoGNode;
-				std::shared_ptr<e57::Node> protoBNode;
-				std::shared_ptr<e57::Node> protoINode;
-
-				if (proto.isDefined("cartesianX") && proto.isDefined("cartesianY") && proto.isDefined("cartesianZ"))
-				{
-					cs = E57CoodSys::XYZ;
-					hasPointXYZ = true;
-					protoXNode = std::shared_ptr<e57::Node>(new e57::Node(proto.get("cartesianX")));
-					protoYNode = std::shared_ptr<e57::Node>(new e57::Node(proto.get("cartesianY")));
-					protoZNode = std::shared_ptr<e57::Node>(new e57::Node(proto.get("cartesianZ")));
-
-					x.resize(scanPoints.childCount());
-					y.resize(scanPoints.childCount());
-					z.resize(scanPoints.childCount());
-					sdBuffers.push_back(e57::SourceDestBuffer(imf, "cartesianX", &x[0], scanPoints.childCount(), true, true));
-					sdBuffers.push_back(e57::SourceDestBuffer(imf, "cartesianY", &y[0], scanPoints.childCount(), true, true));
-					sdBuffers.push_back(e57::SourceDestBuffer(imf, "cartesianZ", &z[0], scanPoints.childCount(), true, true));
-
-				}
-
-				if (proto.isDefined("sphericalRange") && proto.isDefined("sphericalAzimuth") && proto.isDefined("sphericalElevation"))
-				{
-					cs = E57CoodSys::RAE;
-					hasPointXYZ = true;
-					protoXNode = std::shared_ptr<e57::Node>(new e57::Node(proto.get("sphericalRange")));
-					protoYNode = std::shared_ptr<e57::Node>(new e57::Node(proto.get("sphericalAzimuth")));
-					protoZNode = std::shared_ptr<e57::Node>(new e57::Node(proto.get("sphericalElevation")));
-
-					x.resize(scanPoints.childCount());
-					y.resize(scanPoints.childCount());
-					z.resize(scanPoints.childCount());
-					sdBuffers.push_back(e57::SourceDestBuffer(imf, "sphericalRange", &x[0], scanPoints.childCount(), true, true));
-					sdBuffers.push_back(e57::SourceDestBuffer(imf, "sphericalAzimuth", &y[0], scanPoints.childCount(), true, true));
-					sdBuffers.push_back(e57::SourceDestBuffer(imf, "sphericalElevation", &z[0], scanPoints.childCount(), true, true));
-
-				}
-
-				if (proto.isDefined("colorRed") && proto.isDefined("colorGreen") && proto.isDefined("colorBlue"))
-				{
-					hasPointRGB = true;
-					protoRNode = std::shared_ptr<e57::Node>(new e57::Node(proto.get("colorRed")));
-					protoGNode = std::shared_ptr<e57::Node>(new e57::Node(proto.get("colorGreen")));
-					protoBNode = std::shared_ptr<e57::Node>(new e57::Node(proto.get("colorBlue")));
-
-					r.resize(scanPoints.childCount());
-					g.resize(scanPoints.childCount());
-					b.resize(scanPoints.childCount());
-					sdBuffers.push_back(e57::SourceDestBuffer(imf, "colorRed", &r[0], scanPoints.childCount(), true, true));
-					sdBuffers.push_back(e57::SourceDestBuffer(imf, "colorGreen", &g[0], scanPoints.childCount(), true, true));
-					sdBuffers.push_back(e57::SourceDestBuffer(imf, "colorBlue", &b[0], scanPoints.childCount(), true, true));
-				}
-
-				if (proto.isDefined("intensity"))
-				{
-					hasPointI = true;
-					protoINode = std::shared_ptr<e57::Node>(new e57::Node(proto.get("intensity")));
-
-					i.resize(scanPoints.childCount());
-					sdBuffers.push_back(e57::SourceDestBuffer(imf, "intensity", &i[0], scanPoints.childCount(), true, true));
-
-				}
-
-				//
-				if (hasPointXYZ || hasPointRGB || hasPointI)
-				{
-					e57::CompressedVectorReader reader = scanPoints.reader(sdBuffers);
-					if (reader.read() <= 0)
-						PCL_WARN("[pcl::%s::ReadScan] Failed to read E57 points, ignore the scan.\n", "E57Converter");
-					else
-					{
-						for (int64_t pi = 0; pi < scanPoints.childCount(); ++pi)
-						{
-							PointE57 sp;
-
-							if (hasPointXYZ)
-							{								
-								switch (cs)
-								{
-								case E57CoodSys::XYZ:
-									sp.x = x[pi];
-									sp.y = y[pi];
-									sp.z = z[pi];
-									break;
-
-								case E57CoodSys::RAE:
-								{
-									double s_t = std::sin(z[pi]);
-									double s_p = std::sin(y[pi]);
-									double c_t = std::cos(z[pi]);
-									double c_p = std::cos(y[pi]);
-
-									sp.x = x[pi] * c_t * c_p;
-									sp.y = x[pi] * c_t * s_p;
-									sp.z = x[pi] * s_t;
-								}
-								break;
-
-								default:
-									throw PCLException("Coordinate system invalid!!?");
-									break;
-								}
-							}
-
-							if (hasPointRGB)
-							{
-								sp.r = r[pi];
-								sp.g = g[pi];
-								sp.b = b[pi];
-							}
-							else
-							{
-								sp.r = 255;
-								sp.g = 255;
-								sp.b = 255;
-							}
-
-							if (hasPointI)
-							{
-								sp.intensity = i[pi];
-							}
-							sp.scanID = scanID;
-
-							if (sp.Valid())
-								scanCloud.push_back(sp);
-						}
-					}
-					reader.close();
-				}
-			}
-			else
-				PCL_WARN("[pcl::%s::ReadScan] Not supported scan points type.\n", "E57Converter");
-		}
-		else
-			PCL_WARN("[pcl::%s::ReadScan] Scan didnot define points.\n", "E57Converter");
-
-		//
-		pcl::transformPointCloud(scanCloud, scanCloud, transform);
-	}
-
-	E57Converter::E57Converter(const boost::filesystem::path& octPath)
+	Converter::Converter(const boost::filesystem::path& octPath, const Eigen::Vector3d& min, const Eigen::Vector3d& max, const double resolution, const std::string& coordSys) : octPath(octPath)
 	{
 		try
 		{
-			oct = OCT::Ptr(new OCT(octPath / boost::filesystem::path("root.oct_idx"), true));
+			oct = OCT::Ptr(new OCT(min, max, resolution, octPath / boost::filesystem::path("octRoot.oct_idx"), coordSys));
 		}
 		catch (std::exception& ex)
 		{
 			std::stringstream ss;
-			ss << "[pcl::%s::E57Converter] Got an std::exception, what=" << ex.what() << ".\n";
-			PCL_INFO(ss.str().c_str(), "E57Converter");
+			ss << "[e57::%s::Converter] Got an std::exception, what=" << ex.what() << ".\n";
+			PCL_INFO(ss.str().c_str(), "Converter");
 		}
 		catch (...)
 		{
-			PCL_INFO("[pcl::%s::E57Converter] Got an unknown exception.\n", "E57Converter");
+			PCL_INFO("[e57::%s::Converter] Got an unknown exception.\n", "Converter");
 		}
 	}
 
-	E57Converter::E57Converter(const boost::filesystem::path& filePath, const boost::filesystem::path& octPath, const Eigen::Vector3d& min, const Eigen::Vector3d& max, const double resolution_arg, const double sample_percent_arg, const std::string& coord_sys)
+	Converter::Converter(const boost::filesystem::path& octPath) : octPath(octPath)
 	{
 		try
 		{
-			//
-			oct = OCT::Ptr(new OCT(min, max, resolution_arg, octPath / boost::filesystem::path("root.oct_idx"), coord_sys));
+			oct = OCT::Ptr(new OCT(octPath / boost::filesystem::path("octRoot.oct_idx"), true));
+		}
+		catch (std::exception& ex)
+		{
+			std::stringstream ss;
+			ss << "[e57::%s::Converter] Got an std::exception, what=" << ex.what() << ".\n";
+			PCL_INFO(ss.str().c_str(), "Converter");
+		}
+		catch (...)
+		{
+			PCL_INFO("[e57::%s::Converter] Got an unknown exception.\n", "Converter");
+		}
+	}
 
-			//
-			e57::ImageFile imf(filePath.string().c_str(), "r");
+	void Converter::LoadE57(const boost::filesystem::path& e57Path, const double LODSamplePercent)
+	{
+		try
+		{
+			e57::ImageFile imf(e57Path.string().c_str(), "r");
 			e57::VectorNode data3D(imf.root().get("data3D"));
 			e57::VectorNode images2D(imf.root().get("images2D"));
+			nlohmann::json scanJson;
 
-			for (int64_t scanID = 0; scanID < std::min(data3D.childCount(), (int64_t)E57_MAX_SCAN); ++scanID)
+			for (int64_t scanID = 0; scanID < data3D.childCount(); ++scanID)
 			{
-				pcl::PointCloud<PointE57>::Ptr scanCloud = pcl::PointCloud<PointE57>::Ptr(new pcl::PointCloud<PointE57>);
-				ReadScan(imf, data3D, scanID, *scanCloud);
+				Scan scan;
+
+				// Load E57
 				{
+					{
+						std::stringstream ss;
+						ss << "[e57::%s::Converter] Load - scann" << scanID << ".\n";
+						PCL_INFO(ss.str().c_str(), "Converter");
+					}
+					scan.Load(imf, data3D, scanID);
+
+					// Save scan info
+					scanJson[scan.ID]["coodSys"] = CoodSysStr(scan.coodSys);
 					std::stringstream ss;
-					ss << "[pcl::%s::E57Converter] OutOfCoreOctree addPointCloud - scann" << scanID << ".\n";
-					PCL_INFO(ss.str().c_str(), "E57Converter");
+					ss << scan.transform;
+					scanJson[scan.ID]["transform"] = ss.str();
+					scanJson[scan.ID]["hasPointXYZ"] = scan.hasPointXYZ;
+					scanJson[scan.ID]["hasPointRGB"] = scan.hasPointRGB;
+					scanJson[scan.ID]["hasPointI"] = scan.hasPointI;
+					scanJson[scan.ID]["numPoints"] = scan.numPoints;
 				}
-				oct->addPointCloud(scanCloud);
+
+				// To OCT
+				{
+					{
+						std::stringstream ss;
+						ss << "[e57::%s::Converter] OutOfCoreOctree addPointCloud - scann" << scanID << ".\n";
+						PCL_INFO(ss.str().c_str(), "Converter");
+					}
+					pcl::PointCloud<PointE57>::Ptr scanCloud = pcl::PointCloud<PointE57>::Ptr(new pcl::PointCloud<PointE57>);
+					scan.ToPointCloud(*scanCloud);
+					oct->addPointCloud(scanCloud);
+
+					// Save scan info
+					scanJson[scan.ID]["numValidPoints"] = scanCloud->size();
+				}
 			}
+
+			// Save info
+			{
+				std::ofstream scanFile((octPath / boost::filesystem::path("scan.txt")).string(), std::ios_base::out);
+				if (!scanFile)
+					throw pcl::PCLException("Create scanFile " + (e57Path / boost::filesystem::path("scan.txt")).string() + " failed.");
+				scanFile << scanJson;
+				scanFile.close();
+			}
+
+			// OCT buildLOD
 			{
 				std::stringstream ss;
-				ss << "[pcl::%s::E57Converter] OutOfCoreOctree buildLOD - sample_percent_arg " << sample_percent_arg << ".\n";
-				PCL_INFO(ss.str().c_str(), "E57Converter");
+				ss << "[e57::%s::Converter] OutOfCoreOctree buildLOD - LODSamplePercent " << LODSamplePercent << ".\n";
+				PCL_INFO(ss.str().c_str(), "Converter");
 			}
-			oct->setSamplePercent(sample_percent_arg);
+			oct->setSamplePercent(LODSamplePercent);
 			oct->buildLOD();
 			imf.close();
 		}
 		catch (e57::E57Exception& ex)
 		{
 			std::stringstream ss;
-			ss << "[pcl::%s::E57Converter] Got an e57::E57Exception, what=" << ex.what() << ".\n";
-			PCL_INFO(ss.str().c_str(), "E57Converter");
+			ss << "[e57::%s::Converter] Got an e57::E57Exception, what=" << ex.what() << ".\n";
+			PCL_INFO(ss.str().c_str(), "Converter");
 		}
 		catch (std::exception& ex)
 		{
 			std::stringstream ss;
-			ss << "[pcl::%s::E57Converter] Got an std::exception, what=" << ex.what() << ".\n";
-			PCL_INFO(ss.str().c_str(), "E57Converter");
+			ss << "[e57::%s::Converter] Got an std::exception, what=" << ex.what() << ".\n";
+			PCL_INFO(ss.str().c_str(), "Converter");
 		}
 		catch (...)
 		{
-			PCL_INFO("[pcl::%s::E57Converter] Got an unknown exception.\n", "E57Converter");
+			PCL_INFO("[e57::%s::Converter] Got an unknown exception.\n", "Converter");
 		}
 	}
 
-	void E57Converter::BuildLOD(const double sample_percent_arg)
+	void Converter::SaveScanImages(const boost::filesystem::path& scanImagePath)
+	{
+		if (!E57_CAN_CONTAIN_SCANID)
+			throw pcl::PCLException("You must compile the program with POINT_E57_WITH_SCANID definition to enable the function");
+
+		// not implement
+		/*
+		e57::ImageFile imf(filePath.string().c_str(), "r");
+		e57::VectorNode data3D(imf.root().get("data3D"));
+		e57::VectorNode images2D(imf.root().get("images2D"));
+
+		for (int64_t scanID = 0; scanID < data3D.childCount(); ++scanID)
+		{
+			E57Scan scanData;
+			{
+				ReadScan(imf, data3D, scanID, scanData);
+				{
+					std::stringstream ss;
+					ss << "[e57::%s::Converter] ReadScan - scann" << scanID << ".\n";
+					PCL_INFO(ss.str().c_str(), "Converter");
+				}
+
+				if (scanImagePath.size() > 0)
+				{
+					if (!boost::filesystem::exists(scanImagePath))
+					{
+						boost::filesystem::create_directory(scanImagePath);
+						std::stringstream ss;
+						ss << "[e57::%s::Converter] OutOfCoreOctree create directory - " << scanImagePath << ".\n";
+						PCL_INFO(ss.str().c_str(), "Converter");
+					}
+
+				}
+			}
+		}*/
+	}
+
+	void Converter::BuildLOD(const double sample_percent_arg)
 	{
 		try
 		{
@@ -419,19 +196,68 @@ namespace pcl
 		catch (std::exception& ex)
 		{
 			std::stringstream ss;
-			ss << "[pcl::%s::BuildLOD] Got an std::exception, what=" << ex.what() << ".\n";
-			PCL_INFO(ss.str().c_str(), "E57Converter");
+			ss << "[e57::%s::BuildLOD] Got an std::exception, what=" << ex.what() << ".\n";
+			PCL_INFO(ss.str().c_str(), "Converter");
 		}
 		catch (...)
 		{
-			PCL_INFO("[pcl::%s::BuildLOD] Got an unknown exception.\n", "E57Converter");
+			PCL_INFO("[e57::%s::BuildLOD] Got an unknown exception.\n", "Converter");
 		}
 	}
 
-	void E57Converter::DownSampling(const double voxelUnit, pcl::PointCloud<PointE57>& out)
+	void Converter::ExportToPCD(const double voxelUnit, const unsigned int searchRadiusNumVoxels, const uint8_t minRGB, pcl::PointCloud<PointPCD>& out)
 	{
 		try
 		{
+			double searchRadius = voxelUnit * searchRadiusNumVoxels;
+			pcl::VoxelGrid<PointE57> vf;
+			pcl::RadiusOutlierRemoval<PointE57> ror;
+			pcl::NormalEstimation<PointE57, PointPCD> ne;
+
+			//pcl::ConditionalRemoval<PointPCD> cor;
+			pcl::StatisticalOutlierRemoval<PointPCD> sor;
+			pcl::CropBox<PointPCD> cb;
+
+			//
+			{
+				vf.setLeafSize(voxelUnit, voxelUnit, voxelUnit);
+
+				//
+				ror.setRadiusSearch(searchRadius);
+				ror.setMinNeighborsInRadius((searchRadius * searchRadius)*0.1);
+
+				//
+				pcl::search::KdTree<PointE57>::Ptr tree(new pcl::search::KdTree<PointE57>());
+				ne.setSearchMethod(tree);
+				ne.setRadiusSearch(searchRadius);
+
+				//
+				/*pcl::ConditionOr<PointPCD>::Ptr cond(new pcl::ConditionOr<PointPCD>());
+				cond->addComparison(pcl::FieldComparison<PointPCD>::ConstPtr(new pcl::FieldComparison<PointPCD>("r", pcl::ComparisonOps::GT, minRGB)));
+				cond->addComparison(pcl::FieldComparison<PointPCD>::ConstPtr(new pcl::FieldComparison<PointPCD>("g", pcl::ComparisonOps::GT, minRGB)));
+				cond->addComparison(pcl::FieldComparison<PointPCD>::ConstPtr(new pcl::FieldComparison<PointPCD>("b", pcl::ComparisonOps::GT, minRGB)));
+				cor.setCondition(cond);
+				cor.setKeepOrganized(false);
+				*/
+
+				//
+				sor.setMeanK(int(searchRadius * searchRadius));
+				sor.setStddevMulThresh(1.0);
+			}
+
+			//
+			std::size_t numLeaf = 0;
+			{
+				OCT::Iterator it(*oct);
+				while (*it != nullptr)
+				{
+					if ((*it)->getNodeType() == pcl::octree::LEAF_NODE)
+						numLeaf++;
+					it++;
+				}
+			}
+
+			//
 			OCT::Iterator it(*oct);
 			out.clear();
 			std::size_t leafID = 0;
@@ -441,26 +267,128 @@ namespace pcl
 				{
 					{
 						std::stringstream ss;
-						ss << "[pcl::%s::DownSampling] DownSampling leaf " << leafID << ".\n";
-						PCL_INFO(ss.str().c_str(), "E57Converter");
+						ss << "[e57::%s::ExportToPCD] Process leaf " << leafID << "/" << numLeaf << ".\n";
+						PCL_INFO(ss.str().c_str(), "Converter");
 					}
 
-					pcl::PointCloud<PointE57>::Ptr nodeCloud(new pcl::PointCloud<PointE57>);
-					pcl::PointCloud<PointE57>::Ptr fNodeCloud(new pcl::PointCloud<PointE57>);
+					// Query Points
+					Eigen::Vector3d minBB;
+					Eigen::Vector3d maxBB;
+					Eigen::Vector3d extMinBB;
+					Eigen::Vector3d extMaxBB;
+					Eigen::Vector3d extXYZ (searchRadius, searchRadius, searchRadius);
+					(*it)->getBoundingBox(minBB, maxBB);
+					std::size_t depth = (*it)->getDepth();
+					extMinBB = minBB - extXYZ;
+					extMaxBB = maxBB + extXYZ;
+					cb.setMin(Eigen::Vector4f(minBB.x(), minBB.y(), minBB.z(), 1.0));
+					cb.setMax(Eigen::Vector4f(maxBB.x(), maxBB.y(), maxBB.z(), 1.0));
 
-					pcl::io::loadPCDFile((*it)->getPCDFilename().string(), *nodeCloud);
-
-					pcl::VoxelGrid<PointE57> sor;
-					sor.setInputCloud(nodeCloud);
-					sor.setLeafSize(voxelUnit, voxelUnit, voxelUnit);
-					sor.filter(*fNodeCloud);
-
-					out += (*fNodeCloud);
-
+					pcl::PointCloud<PointPCD>::Ptr pcdCloud(new pcl::PointCloud<PointPCD>);
 					{
-						std::stringstream ss;
-						ss << "[pcl::%s::DownSampling] DownSampling leaf " << leafID << " end, final cloud total " << out.size() << " points.\n";
-						PCL_INFO(ss.str().c_str(), "E57Converter");
+						pcl::PointCloud<PointPCD>::Ptr pcdCloud_VF_ROR(new pcl::PointCloud<PointPCD>);
+						{
+							{
+								std::stringstream ss;
+								ss << "[e57::%s::ExportToPCD] Query - minBB, maxBB, depth, extMinBB, extMaxBB: " << minBB << ", " << maxBB << ", " << depth << ", " << extMinBB << ", " << extMaxBB << ".\n";
+								PCL_INFO(ss.str().c_str(), "Converter");
+							}
+							pcl::PointCloud<PointE57>::Ptr e57Cloud(new pcl::PointCloud<PointE57>);
+							{
+								pcl::PCLPointCloud2::Ptr blob(new pcl::PCLPointCloud2);
+								oct->queryBoundingBox(extMinBB, extMaxBB, depth, blob);
+								pcl::fromPCLPointCloud2(*blob, *e57Cloud);
+							}
+
+							pcl::PointCloud<PointE57>::Ptr e57Cloud_VF(new pcl::PointCloud<PointE57>);
+							pcl::PointCloud<PointE57>::Ptr e57Cloud_VF_ROR(new pcl::PointCloud<PointE57>);
+							{
+								// DownSampling
+								PCL_INFO("[e57::%s::ExportToPCD] DownSampling.\n", "Converter");
+								vf.setInputCloud(e57Cloud);
+								vf.filter(*e57Cloud_VF);
+								{
+									std::stringstream ss;
+									ss << "[e57::%s::ExportToPCD] DownSampling - inSize, outSize: " << e57Cloud->size() << ", " << e57Cloud_VF->size() << ".\n";
+									PCL_INFO(ss.str().c_str(), "Converter");
+								}
+
+								//RadiusOutlierRemoval
+								PCL_INFO("[e57::%s::ExportToPCD] RadiusOutlierRemoval.\n", "Converter");
+								vf.setInputCloud(e57Cloud_VF);
+								vf.filter(*e57Cloud_VF_ROR);
+								{
+									std::stringstream ss;
+									ss << "[e57::%s::ExportToPCD] DownSampling - inSize, outSize: " << e57Cloud_VF->size() << ", " << e57Cloud_VF_ROR->size() << ".\n";
+									PCL_INFO(ss.str().c_str(), "Converter");
+								}
+							}
+
+							// Estimat Normal
+							pcdCloud_VF_ROR->resize(e57Cloud_VF_ROR->size());
+							for (std::size_t pi = 0; pi < e57Cloud_VF_ROR->size(); ++pi)
+								(*pcdCloud_VF_ROR)[pi].FromPointE57((*e57Cloud_VF_ROR)[pi]);
+
+							if (PCD_CAN_CONTAIN_NORMAL)
+							{
+								PCL_INFO("[e57::%s::ExportToPCD] NormalEstimation.\n", "Converter");
+								ne.setInputCloud(e57Cloud_VF_ROR);
+								ne.setSearchSurface(e57Cloud_VF);
+								ne.compute(*pcdCloud_VF_ROR);
+							}
+						}
+
+						// Outlier Removal
+						pcl::PointCloud<PointPCD>::Ptr pcdCloud_VF_ROR_SOR(new pcl::PointCloud<PointPCD>);
+						{
+							PCL_INFO("[e57::%s::ExportToPCD] Outlier Removal.\n", "Converter");
+							sor.setInputCloud(pcdCloud_VF_ROR);
+							sor.filter(*pcdCloud_VF_ROR_SOR);
+							{
+								std::stringstream ss;
+								ss << "[e57::%s::ExportToPCD] Outlier Removal - inSize, outSize: " << pcdCloud_VF_ROR->size() << ", " << pcdCloud_VF_ROR_SOR->size() << ".\n";
+								PCL_INFO(ss.str().c_str(), "Converter");
+							}
+						}
+
+						// Crop Box
+						{
+							PCL_INFO("[e57::%s::ExportToPCD] Crop Box.\n", "Converter");
+							cb.setInputCloud(pcdCloud_VF_ROR_SOR);
+							cb.filter(*pcdCloud);
+							{
+								std::stringstream ss;
+								ss << "[e57::%s::ExportToPCD] Crop Box - inSize, outSize: " << pcdCloud_VF_ROR_SOR->size() << ", " << pcdCloud->size() << ".\n";
+								PCL_INFO(ss.str().c_str(), "Converter");
+							}
+						}
+					}
+
+					// Merge
+					{
+						PCL_INFO("[e57::%s::ExportToPCD] Remove black scan points.\n", "Converter");
+
+						pcl::PointCloud<PointPCD>::Ptr pcdCloud_removeScanBlack(new pcl::PointCloud<PointPCD>);
+						pcdCloud_removeScanBlack->reserve(pcdCloud->size());
+						for (std::size_t pi = 0; pi < pcdCloud->size(); ++pi)
+						{
+							PointPCD& inP = (*pcdCloud)[pi];
+							if (inP.r >= minRGB || inP.g >= minRGB || inP.b >= minRGB)
+								pcdCloud_removeScanBlack->push_back(inP);
+						}
+
+						{
+							std::stringstream ss;
+							ss << "[e57::%s::ExportToPCD] Remove black scan points - inSize, outSize: " << pcdCloud->size() << ", " << pcdCloud_removeScanBlack->size() << ".\n";
+							PCL_INFO(ss.str().c_str(), "Converter");
+						}
+
+						out += (*pcdCloud_removeScanBlack);
+						{
+							std::stringstream ss;
+							ss << "[e57::%s::ExportToPCD] Process leaf " << leafID << " end, final cloud total " << out.size() << " points.\n";
+							PCL_INFO(ss.str().c_str(), "Converter");
+						}
 					}
 					leafID++;
 				}
@@ -471,37 +399,12 @@ namespace pcl
 		catch (std::exception& ex)
 		{
 			std::stringstream ss;
-			ss << "[pcl::%s::DownSampling] Got an std::exception, what=" << ex.what() << ".\n";
-			PCL_INFO(ss.str().c_str(), "E57Converter");
+			ss << "[e57::%s::ExportToPCD] Got an std::exception, what=" << ex.what() << ".\n";
+			PCL_INFO(ss.str().c_str(), "Converter");
 		}
 		catch (...)
 		{
-			PCL_INFO("[pcl::%s::DownSampling] Got an unknown exception.\n", "E57Converter");
-		}
-	}
-
-	void E57Converter::PrintE57Format(const boost::filesystem::path& filePath)
-	{
-		try
-		{
-			e57::ImageFile imf(filePath.string().c_str(), "r");
-			e57::ParseNode(0, imf.root());
-		}
-		catch (e57::E57Exception& ex)
-		{
-			std::stringstream ss;
-			ss << "[pcl::%s::PrintE57Format] Got an e57::E57Exception, what=" << ex.what() << ".\n";
-			PCL_INFO(ss.str().c_str(), "E57Converter");
-		}
-		catch (std::exception& ex)
-		{
-			std::stringstream ss;
-			ss << "[pcl::%s::PrintE57Format] Got an std::exception, what=" << ex.what() << ".\n";
-			PCL_INFO(ss.str().c_str(), "E57Converter");
-		}
-		catch (...)
-		{
-			PCL_INFO("[pcl::%s::PrintE57Format] Got an unknown exception.\n", "E57Converter");
+			PCL_INFO("[e57::%s::ExportToPCD] Got an unknown exception.\n", "Converter");
 		}
 	}
 }

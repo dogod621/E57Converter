@@ -6,8 +6,8 @@ project( E57Converter )
 #
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 	set ( CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT OFF )
-	set(CMAKE_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME})
-	#SET(CMAKE_INSTALL_PREFIX "${CMAKE_CURRENT_SOURCE_DIR}/../install/" CACHE PATH "${CMAKE_CURRENT_SOURCE_DIR}/../install/" FORCE)
+	#set(CMAKE_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME})
+	SET(CMAKE_INSTALL_PREFIX "${CMAKE_CURRENT_SOURCE_DIR}/../install/" CACHE PATH "${CMAKE_CURRENT_SOURCE_DIR}/../install/" FORCE)
 endif(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/")
@@ -26,6 +26,16 @@ if(NOT IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/libE57Format")
     "You probably did not clone the project with --recursive. It is possible to recover "
     "by running \"git submodule update --init --recursive\"")
 endif()
+if(NOT IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/Json")
+  message(FATAL_ERROR "The Json submodule directory is missing! "
+    "You probably did not clone the project with --recursive. It is possible to recover "
+    "by running \"git submodule update --init --recursive\"")
+endif()
+if(NOT IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/Half")
+  message(FATAL_ERROR "The Half submodule directory is missing! "
+    "You probably did not clone the project with --recursive. It is possible to recover "
+    "by running \"git submodule update --init --recursive\"")
+endif()
 
 # XercesC
 add_subdirectory (Xerces-C)
@@ -39,7 +49,7 @@ endif()
 if(TARGET createapidocs)
 	list(APPEND XercesC_Documentation_TARGETS createapidocs)
 endif()
-set_target_properties(${XercesC_Documentation_TARGETS} PROPERTIES COMPILE_FLAGS "/wd4819" FOLDER "XercesC/Documentation")
+set_target_properties(${XercesC_Documentation_TARGETS} PROPERTIES FOLDER "XercesC/Documentation")
 
 # XercesC Library
 set(XercesC_Library_TARGETS)
@@ -50,7 +60,7 @@ endif()
 if(TARGET gencat)
 	list(APPEND XercesC_Library_TARGETS gencat)
 endif()
-set_target_properties(${XercesC_Library_TARGETS} PROPERTIES COMPILE_FLAGS "/wd4819" FOLDER "XercesC/Library")
+set_target_properties(${XercesC_Library_TARGETS} PROPERTIES FOLDER "XercesC/Library")
 
 # XercesC Tests
 set(XercesC_Tests_TARGETS)
@@ -74,7 +84,7 @@ endif()
 if(TARGET Char16Test)
 	list(APPEND XercesC_Tests_TARGETS Char16Test)
 endif()
-set_target_properties(${XercesC_Tests_TARGETS} PROPERTIES COMPILE_FLAGS "/wd4819" FOLDER "XercesC/Tests")
+set_target_properties(${XercesC_Tests_TARGETS} PROPERTIES FOLDER "XercesC/Tests")
 
 # XercesC Samples
 set(XercesC_Samples_TARGETS)
@@ -95,7 +105,7 @@ list(APPEND XercesC_Samples_TARGETS
 	SEnumVal
 	StdInParse
 	XInclude)
-set_target_properties(${XercesC_Samples_TARGETS} PROPERTIES COMPILE_FLAGS "/wd4819" FOLDER "XercesC/Samples")
+set_target_properties(${XercesC_Samples_TARGETS} PROPERTIES FOLDER "XercesC/Samples")
 
 # E57
 if ( WIN32 )
@@ -104,7 +114,23 @@ endif()
 add_subdirectory (libE57Format)
 set(libE57Format_TARGETS)
 list(APPEND libE57Format_TARGETS E57Format)
-set_target_properties(${libE57Format_TARGETS} PROPERTIES COMPILE_FLAGS "/wd4819" FOLDER "libE57Format")
+set_target_properties(${libE57Format_TARGETS} PROPERTIES FOLDER "libE57Format")
+
+# Json
+set(JSON_BuildTests OFF CACHE BOOL " " FORCE)
+add_subdirectory (Json)
+set(Json_TARGETS)
+set_target_properties(${Json_TARGETS} PROPERTIES FOLDER "Json")
+
+# Half
+macro(define_module name)
+endmacro()
+macro(buildsys_library target)
+endmacro()
+add_subdirectory (Half/half)
+set(Half_TARGETS)
+list(APPEND Half_TARGETS half)
+set_target_properties(${Half_TARGETS} PROPERTIES FOLDER "Half")
 
 # E57Converter
 add_subdirectory("E57Converter")

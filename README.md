@@ -4,13 +4,27 @@ Convert E57 point cloud format to PCL pcd format
 # Submodules
 	Xerces-C (for libE57Format):https://github.com/apache/xerces-c
 	libE57Format: https://github.com/asmaloney/libE57Format
+	JSON for Modern C++: https://github.com/nlohmann/json
+	Half precision floating point C++ library: https://github.com/melowntech/half
 
 # Dependency
 	PCL: https://github.com/PointCloudLibrary/pcl
+	OpenCV: https://github.com/opencv/opencv
 
 # How to build
-	1. clone with submodul: git clone --recursive https://github.com/dogod621/E57Converter.git
-	2. build the project: use CMAKE (PS. you may want to set USING_STATIC_XERCES ON)
+	1. Install dependencies: PCL, OpenCV
+	2. Clone with submodul: git clone --recursive https://github.com/dogod621/E57Converter.git
+	3. Build the project: use CMAKE (PS. you may want to set USING_STATIC_XERCES ON)
+		3.1. CMake Require Parameters:
+			3.1.1 OpenCV_DIR: Specify where did you install OpenCV. (Notice: The Install folder should contain OpenCVConfig.cmake)
+		3.2. CMake Options:
+			3.2.1. POINT_E57_WITH_RGB (Default: ON): Specify to store scanned RGB value if E57 have them.
+			3.2.2. POINT_E57_WITH_INTENSITY(Default: ON): Specify to store scanned intensity value if E57 have them.
+			3.2.3. POINT_E57_WITH_SCANID(Default: ON): (Only be used in further developing functions, currenty not used)Specify to store scanned index.
+			3.2.4. POINT_E57_WITH_HDR(Default: ON): (Only be used in further developing functions, currenty not used)Specify to store scanned HDRI RGB value if E57 have them.
+			3.2.5. POINT_PCD_WITH_RGB(Default: ON): Specify to keep RGB value from E57 when converting E57 to PCD.
+			3.2.6. POINT_PCD_WITH_NORMAL(Default: ON): Specify to estimate normal vector when converting E57 to PCD.
+			3.2.7. POINT_PCD_WITH_LABEL(Default: ON): (Only be used in further developing functions, currenty not used).
 
 # How to use
 Demo example:<br>
@@ -93,14 +107,17 @@ Test E57 Data from https://lasers.leica-geosystems.com/blk360-data-set-downloads
 			-dst:
 				output file.
 				
+			-normal:
+				specify output point normal (default false).
+				
 			-rgb:
-				specify output point color.
+				specify output point color (default false).
 				
 			-camera:
-				specify output camera (default false)
+				specify output camera (default false).
 			
 			-binary:
-				specify output as binary (default false)
+				specify output as binary (default false).
 			
 	3. Rebuild PCL OutOfCoreOctree LOD:
 		Command:
@@ -116,9 +133,3 @@ Test E57 Data from https://lasers.leica-geosystems.com/blk360-data-set-downloads
 			-samplePercent 
 				sets the sampling percent for constructing LODs.
 				
-			
-	
-	
-		
-
-

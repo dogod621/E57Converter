@@ -4,3 +4,9 @@
 [submodule "Xerces-C"]
 	path = Xerces-C
 	url = https://github.com/apache/xerces-c.git
+[submodule "Json"]
+	path = Json
+	url = https://github.com/nlohmann/json.git
+[submodule "Half"]
+	path = Half
+	url = https://github.com/melowntech/half.git
