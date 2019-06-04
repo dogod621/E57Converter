@@ -66,7 +66,7 @@ void PrintHelp(int argc, char **argv)
 		PRINT_HELP("\t"	, "dst"						, "sting \"\""						, "Output pcd pointCloud file.");
 		PRINT_HELP("\t"	, "voxelUnit"				, "float 0.01"						, "Gird voxel size in meters.");
 		PRINT_HELP("\t"	, "searchRadiusNumVoxels"	, "int 8"							, "Search radius(unit is voxel), this is used for surface normal estimation and outlier removal.");
-		PRINT_HELP("\t"	, "polynomialOrder"			, "int 3"							, "For MovingLeastSquares esitmate surface.");
+		PRINT_HELP("\t"	, "polynomialOrder"			, "int 3"							, "Parameter for MovingLeastSquares to esitmate surface.");
 	}
 
 	std::cout << "Parmameters of -convert -src \"*.pcd\"  -dst \"*.ply\":=======================================================================================================" << std::endl << std::endl;

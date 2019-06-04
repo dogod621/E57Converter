@@ -68,7 +68,7 @@ Test E57 Data from https://lasers.leica-geosystems.com/blk360-data-set-downloads
 					
 		2. Convert PCL OutOfCoreOctree to .pcd:
 			Command:
-				E57Converter.exe -convert -src "D:/dst/" -dst "D:/dst.pcd" -voxelUnit 0.05 -searchRadiusNumVoxels 8
+				E57Converter.exe -convert -src "D:/dst/" -dst "D:/dst.pcd" -voxelUnit 0.05 -searchRadiusNumVoxels 6 -polynomialOrder 3
 				
 			Paramerte description:
 				-convert:
@@ -86,6 +86,9 @@ Test E57 Data from https://lasers.leica-geosystems.com/blk360-data-set-downloads
 					
 				-searchRadiusNumVoxels:
 					the search radius (unit is voxel), this is used for surface normal estimation and outlier removal.
+					
+				-polynomialOrder:
+					for MovingLeastSquares to esitmate surface.
 
 # Useful fuctions:
 	1. Print .e57 file tree structure (This is useful for e57 developers):
