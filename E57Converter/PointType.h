@@ -16,10 +16,10 @@
 #define E57_CAN_CONTAIN_INTENSITY false
 #endif
 
-#ifdef POINT_E57_WITH_SCANID
-#define E57_CAN_CONTAIN_SCANID true
+#ifdef POINT_E57_WITH_LABEL
+#define E57_CAN_CONTAIN_LABEL true
 #else
-#define E57_CAN_CONTAIN_SCANID false
+#define E57_CAN_CONTAIN_LABEL false
 #endif
 
 #ifdef POINT_E57_WITH_HDR
@@ -32,6 +32,12 @@
 #define PCD_CAN_CONTAIN_RGB true
 #else
 #define PCD_CAN_CONTAIN_RGB false
+#endif
+
+#ifdef POINT_PCD_WITH_INTENSITY
+#define PCD_CAN_CONTAIN_INTENSITY true
+#else
+#define PCD_CAN_CONTAIN_INTENSITY false
 #endif
 
 #ifdef POINT_PCD_WITH_NORMAL
@@ -47,55 +53,101 @@
 #endif
 
 //
+#define ADD_LABEL union { uint32_t label; int32_t hasLabel; };
+
+#define ADD_NORMAL_RGB_INTENSITY_LABEL \
+	PCL_ADD_NORMAL4D; \
+	union EIGEN_ALIGN16 \
+	{ \
+		struct \
+		{ \
+			PCL_ADD_UNION_RGB; \
+			PCL_ADD_INTENSITY; \
+			ADD_LABEL; \
+			float curvature; \
+		}; \
+		float data_c[4]; \
+	}; \
+	PCL_ADD_EIGEN_MAPS_RGB;
+
+#define ADD_RGB_INTENSITY_LABEL \
+	union EIGEN_ALIGN16 \
+	{ \
+		struct \
+		{ \
+			PCL_ADD_UNION_RGB; \
+			PCL_ADD_INTENSITY; \
+			ADD_LABEL; \
+		}; \
+		float data_c[4]; \
+	}; \
+	PCL_ADD_EIGEN_MAPS_RGB;
+
+
+
 struct EIGEN_ALIGN16 _PointE57
 {
 	PCL_ADD_POINT4D;
+
 #ifdef POINT_E57_WITH_HDR
 	union EIGEN_ALIGN16 { float data_hdr[4]; struct { float hdr_r; float hdr_g; float hdr_b; float hdr_a; }; };
 #endif
+
 #ifdef POINT_E57_WITH_RGB
-	PCL_ADD_RGB;
+#	ifdef POINT_E57_WITH_INTENSITY
+#		ifdef POINT_E57_WITH_LABEL
+			ADD_RGB_INTENSITY_LABEL;
+#		else
+			ADD_RGB_INTENSITY_LABEL;
+#		endif
+#	elif defined POINT_E57_WITH_LABEL
+		ADD_RGB_INTENSITY_LABEL;
+#	else
+		PCL_ADD_RGB;
+#	endif
+
+#elif defined POINT_E57_WITH_INTENSITY
+#	ifdef POINT_E57_WITH_LABEL
+		ADD_RGB_INTENSITY_LABEL;
+#	else
+		PCL_ADD_INTENSITY;
+#	endif
+
+#elif defined POINT_E57_WITH_LABEL
+	ADD_LABEL;
 #endif
-#ifdef POINT_E57_WITH_INTENSITY
-	PCL_ADD_INTENSITY;
-#endif
-#ifdef POINT_E57_WITH_SCANID
-	union { uint32_t scanID; int32_t hasScanID; };
-#endif
+
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 struct EIGEN_ALIGN16 _PointPCD
 {
 	PCL_ADD_POINT4D;
+
 #ifdef POINT_PCD_WITH_NORMAL
-		PCL_ADD_NORMAL4D;
-#	ifdef POINT_PCD_WITH_RGB
-		union
-		{
-			struct
-			{
-				PCL_ADD_UNION_RGB;
-				float curvature;
-			};
-			float data_c[4];
-		};
-		PCL_ADD_EIGEN_MAPS_RGB;
-#	else
-		union
-		{
-			struct
-			{
-				float curvature;
-			};
-			float data_c[4];
-		};
-#	endif
+	ADD_NORMAL_RGB_INTENSITY_LABEL;
 #elif defined POINT_PCD_WITH_RGB
-	PCL_ADD_RGB;
-#endif
-#ifdef POINT_PCD_WITH_LABEL
-	union { uint32_t label; int32_t hasLabel; };
+#	ifdef POINT_PCD_WITH_INTENSITY
+#		ifdef POINT_PCD_WITH_LABEL
+			ADD_RGB_INTENSITY_LABEL;
+#		else
+			ADD_RGB_INTENSITY_LABEL;
+#		endif
+#	elif defined POINT_PCD_WITH_LABEL
+		ADD_RGB_INTENSITY_LABEL;
+#	else
+		PCL_ADD_RGB;
+#	endif
+
+#elif defined POINT_PCD_WITH_INTENSITY
+#	ifdef POINT_PCD_WITH_LABEL
+		ADD_RGB_INTENSITY_LABEL;
+#	else
+		PCL_ADD_INTENSITY;
+#	endif
+
+#elif defined POINT_PCD_WITH_LABEL
+	ADD_LABEL;
 #endif
 };
 
@@ -114,8 +166,8 @@ struct PointE57 : public _PointE57
 #ifdef POINT_E57_WITH_INTENSITY
 		intensity = p.intensity;
 #endif
-#ifdef POINT_E57_WITH_SCANID
-		scanID = p.scanID;
+#ifdef POINT_E57_WITH_LABEL
+		label = p.label;
 #endif
 	}
 
@@ -136,8 +188,8 @@ struct PointE57 : public _PointE57
 #ifdef POINT_E57_WITH_INTENSITY
 		intensity = 0.f;
 #endif
-#ifdef POINT_E57_WITH_SCANID
-		hasScanID = -1;
+#ifdef POINT_E57_WITH_LABEL
+		hasLabel = -1;
 #endif
 	}
 
@@ -151,16 +203,13 @@ struct PointE57 : public _PointE57
 #ifdef POINT_E57_WITH_INTENSITY
 			&& std::isfinite(intensity)
 #endif
-#ifdef POINT_E57_WITH_SCANID
-			&& HasScanID()
-#endif
 			;
 	}
 
-#ifdef POINT_E57_WITH_SCANID
-	inline bool HasScanID()
+#ifdef POINT_PCD_WITH_LABEL
+	inline bool HasLabel()
 	{
-		return !(hasScanID == -1);
+		return !(hasLabel == -1);
 	}
 #endif
 };
@@ -176,6 +225,9 @@ struct PointPCD : public _PointPCD
 #ifdef POINT_PCD_WITH_RGB
 		rgba = p.rgba;
 #endif
+#ifdef POINT_PCD_WITH_INTENSITY
+		intensity = p.intensity;
+#endif
 #ifdef POINT_PCD_WITH_LABEL
 		label = p.label;
 #endif
@@ -187,6 +239,11 @@ struct PointPCD : public _PointPCD
 #ifdef POINT_PCD_WITH_RGB
 #ifdef POINT_E57_WITH_RGB
 		rgba = p.rgba;
+#endif
+#endif
+#ifdef POINT_PCD_WITH_INTENSITY
+#ifdef POINT_E57_WITH_INTENSITY
+		intensity = p.intensity;
 #endif
 #endif
 	}
@@ -205,6 +262,9 @@ struct PointPCD : public _PointPCD
 #ifdef POINT_PCD_WITH_RGB
 		r = g = b = 0; a = 1;
 #endif
+#ifdef POINT_PCD_WITH_INTENSITY
+		intensity = 0.f;
+#endif
 #ifdef POINT_PCD_WITH_LABEL
 		hasLabel = -1;
 #endif
@@ -216,6 +276,9 @@ struct PointPCD : public _PointPCD
 			std::isfinite(x) && std::isfinite(y) && std::isfinite(z)
 #ifdef POINT_PCD_WITH_NORMAL
 			&& std::isfinite(normal_x) && std::isfinite(normal_y) && std::isfinite(normal_z) && std::isfinite(curvature)
+#endif
+#ifdef POINT_PCD_WITH_INTENSITY
+			&& std::isfinite(intensity)
 #endif
 			;
 	}
@@ -245,10 +308,10 @@ struct PointPCD : public _PointPCD
 #else
 #define REGISTER_E57_INTENSITY
 #endif
-#ifdef POINT_E57_WITH_SCANID
-#define REGISTER_E57_SCANID (uint32_t, scanID, scanID)
+#ifdef POINT_E57_WITH_LABEL
+#define REGISTER_E57_LABEL (uint32_t, label, label)
 #else
-#define REGISTER_E57_SCANID
+#define REGISTER_E57_LABEL
 #endif
 
 #define REGISTER_PCD_XYZ (float, x, x) (float, y, y) (float, z, z)
@@ -262,6 +325,11 @@ struct PointPCD : public _PointPCD
 #else
 #define REGISTER_PCD_RGB 
 #endif
+#ifdef POINT_PCD_WITH_INTENSITY
+#define REGISTER_PCD_INTENSITY (float, intensity, intensity)
+#else
+#define REGISTER_PCD_INTENSITY
+#endif
 #ifdef POINT_PCD_WITH_LABEL
 #define REGISTER_PCD_LABEL (uint32_t, label, label)
 #else
@@ -273,7 +341,7 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(PointE57,
 	REGISTER_E57_HDR
 	REGISTER_E57_RGB
 	REGISTER_E57_INTENSITY
-	REGISTER_E57_SCANID
+	REGISTER_E57_LABEL
 )
 POINT_CLOUD_REGISTER_POINT_WRAPPER(PointE57, PointE57)
 
@@ -281,6 +349,7 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(PointPCD,
 	REGISTER_PCD_XYZ
 	REGISTER_PCD_NORMAL
 	REGISTER_PCD_RGB
+	REGISTER_PCD_INTENSITY
 	REGISTER_PCD_LABEL
 )
 POINT_CLOUD_REGISTER_POINT_WRAPPER(PointPCD, PointPCD)

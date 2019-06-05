@@ -107,8 +107,9 @@ namespace e57
 	CoodSys StrToCoodSys(const std::string& str);
 	RAEMode StrToRAEMode(const std::string& str);
 
-	Eigen::Vector3f RAEToXYZ(RAEMode type, const Eigen::Vector3f& p);
-	Eigen::Vector3f XYZToRAE(RAEMode type, const Eigen::Vector3f& p);
+	Eigen::Vector3d RAEToXYZ(RAEMode type, const Eigen::Vector3d& p);
+	Eigen::Vector3d XYZToRAE(RAEMode type, const Eigen::Vector3d& p);
+	Eigen::Vector2d RAEToUV(RAEMode type, const Eigen::Vector3d& p);
 
 	class Scan
 	{

@@ -20,11 +20,12 @@ Convert E57 point cloud format to PCL pcd format
 		3.2. CMake Options:
 			3.2.1. POINT_E57_WITH_RGB (Default: ON): Specify to store scanned RGB value if E57 have them.
 			3.2.2. POINT_E57_WITH_INTENSITY(Default: ON): Specify to store scanned intensity value if E57 have them.
-			3.2.3. POINT_E57_WITH_SCANID(Default: ON): (Only be used in further developing functions, currenty not used)Specify to store scanned index.
+			3.2.3. POINT_E57_WITH_LABEL(Default: ON): (Only be used in further developing functions, currenty not used)Specify to store scanned index.
 			3.2.4. POINT_E57_WITH_HDR(Default: ON): (Only be used in further developing functions, currenty not used)Specify to store scanned HDRI RGB value if E57 have them.
 			3.2.5. POINT_PCD_WITH_RGB(Default: ON): Specify to keep RGB value from E57 when converting E57 to PCD.
-			3.2.6. POINT_PCD_WITH_NORMAL(Default: ON): Specify to estimate normal vector when converting E57 to PCD.
-			3.2.7. POINT_PCD_WITH_LABEL(Default: ON): (Only be used in further developing functions, currenty not used).
+			3.2.6. POINT_PCD_WITH_INTENSITY(Default: ON): Specify to keep intensity value from E57 when converting E57 to PCD.
+			3.2.7. POINT_PCD_WITH_NORMAL(Default: ON): Specify to estimate normal vector when converting E57 to PCD.
+			3.2.8. POINT_PCD_WITH_LABEL(Default: ON): (Only be used in further developing functions, currenty not used).
 
 # How to use
 Demo example:<br>

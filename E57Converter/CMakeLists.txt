@@ -3,9 +3,10 @@ cmake_minimum_required( VERSION 3.2 )
 #
 option(POINT_E57_WITH_RGB "E57 per-point data can contain scanned RGB or not" ON)
 option(POINT_E57_WITH_INTENSITY "E57 per-point data can contain scanned intensity or not" ON)
-option(POINT_E57_WITH_SCANID "E57 per-point data can contain scan index or not" ON)
+option(POINT_E57_WITH_LABEL "E57 per-point data can contain scan index or not" ON)
 option(POINT_E57_WITH_HDR "E57 per-point data can contain scanned HDR RGB or not" ON)
 option(POINT_PCD_WITH_RGB "PCD per-point data can contain RGB or not" ON)
+option(POINT_PCD_WITH_INTENSITY "PCD per-point data can contain intensity or not" ON)
 option(POINT_PCD_WITH_NORMAL "PCD per-point data can contain normal or not" ON)
 option(POINT_PCD_WITH_LABEL "PCD per-point data can contain label or not" ON)
 
@@ -66,8 +67,8 @@ if ( ${POINT_E57_WITH_INTENSITY} )
 	add_definitions(-DPOINT_E57_WITH_INTENSITY)
 endif()
 
-if ( ${POINT_E57_WITH_SCANID} )
-	add_definitions(-DPOINT_E57_WITH_SCANID)
+if ( ${POINT_E57_WITH_LABEL} )
+	add_definitions(-DPOINT_E57_WITH_LABEL)
 endif()
 
 if ( ${POINT_E57_WITH_HDR} )
@@ -76,6 +77,10 @@ endif()
 
 if ( ${POINT_PCD_WITH_RGB} )
 	add_definitions(-DPOINT_PCD_WITH_RGB)
+endif()
+
+if ( ${POINT_PCD_WITH_INTENSITY} )
+	add_definitions(-DPOINT_PCD_WITH_INTENSITY)
 endif()
 
 if ( ${POINT_PCD_WITH_NORMAL} )

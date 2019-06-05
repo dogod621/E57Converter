@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <vector>
+#include <limits>
 
 #include "E57Utils.h"
 #include "E57Converter.h"
@@ -18,11 +19,11 @@
 #include <pcl/io/io.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/io/png_io.h>
+#include <pcl/conversions.h>
 #include <pcl/pcl_macros.h>
 #include <pcl/outofcore/outofcore_impl.h>
 #include <pcl/features/normal_3d.h>
 #include <pcl/surface/mls.h>
-
 
 //#include "ReCapHDRI.h"
 
@@ -181,8 +182,8 @@ namespace e57
 	{
 		try
 		{
-			if (!E57_CAN_CONTAIN_SCANID)
-				throw pcl::PCLException("You must compile the program with POINT_E57_WITH_SCANID definition to enable the function");
+			if (!E57_CAN_CONTAIN_LABEL)
+				throw pcl::PCLException("You must compile the program with POINT_E57_WITH_LABEL definition to enable the function");
 
 			if (!boost::filesystem::exists(scanImagePath))
 			{
@@ -192,41 +193,162 @@ namespace e57
 				PCL_INFO(ss.str().c_str(), "Converter");
 			}
 
+			std::size_t scanID = 0;
 			for (nlohmann::json::iterator it = scanInfo.begin(); it != scanInfo.end(); ++it)
 			{
-				Eigen::Matrix4d transform;
+				{
+					std::stringstream ss;
+					ss << "[e57::%s::ReconstructScanImages] Reconstruct scan" << scanID << ".\n";
+					PCL_INFO(ss.str().c_str(), "Converter");
+				}
+
+
+				//
+				pcl::PointCloud<PointPCD>::Ptr scanImage(new pcl::PointCloud<PointPCD>);
+				scanImage->width = width;
+				scanImage->height = height;
+				scanImage->is_dense = true;
+				scanImage->resize(width*height);
+				for (pcl::PointCloud<PointPCD>::iterator cloudIT = scanImage->begin(); cloudIT != scanImage->end(); ++cloudIT)
+				{
+					cloudIT->x = NAN;
+					cloudIT->y = NAN;
+					cloudIT->z = NAN;
+					cloudIT->data[3] = std::numeric_limits<float>::infinity(); // use as depth buffer
+#ifdef POINT_PCD_WITH_NORMAL
+					cloudIT->normal_x = NAN;
+					cloudIT->normal_y = NAN;
+					cloudIT->normal_z = NAN;
+					cloudIT->curvature = NAN;
+#endif
+#ifdef POINT_PCD_WITH_RGB
+					cloudIT->r = 0;
+					cloudIT->g = 0;
+					cloudIT->b = 0;
+#endif
+				}
+
+				//
+				Eigen::Matrix4d scanToWord;
 				nlohmann::json::iterator it2 = (*it)["transform"].begin();
 				for (int r = 0; r < 4; ++r)
 				{
 					for (int c = 0; c < 4; ++c)
 					{
-						transform(r, c) = *it2;
+						scanToWord(r, c) = *it2;
 						++it2;
 					}
 				}
-				std::cout << transform << '\n'; 
+				Eigen::Matrix4d wordToScan = scanToWord.inverse();
 
-				//std::cout << *it << '\n'; 
-
-				//for (nlohmann::json::iterator it2 = (*it)["transform"].begin(); it2 != (*it)["transform"].end(); ++it2)
-
-
-				/*Eigen::Matrix4d transform;
-				std::stringstream ss;
-				std::string s = (*it)["transform"];
-				ss << s;
-				for (int r = 0; r < 4; ++r)
+				for (pcl::PointCloud<PointPCD>::iterator cloudIT = cloud.begin(); cloudIT != cloud.end(); ++cloudIT)
 				{
-					for (int c = 0; c < 4; ++c)
+					Eigen::Vector4d scanPos(cloudIT->x, cloudIT->y, cloudIT->z, 1.0);
+					scanPos = wordToScan * scanPos;
+
+					Eigen::Vector2d uv;
+					double depth = scanPos.norm();
+					switch (coodSys)
 					{
-						double v = 0.0;
-						ss >> v;
-						transform(r, c) = v;
+					case CoodSys::RAE:
+						uv = e57::RAEToUV(raeMode, e57::XYZToRAE(raeMode, Eigen::Vector3d(scanPos.x(), scanPos.y(), scanPos.z())));
+						break;
+
+					default:
+						throw pcl::PCLException("coodSys is not support.");
+						break;
+					}
+
+					std::size_t x = uv.x() * (width - 1);
+					std::size_t y = uv.y() * (height - 1);
+					std::size_t index = y * width + x;
+					PointPCD& scanImageP = (*scanImage)[index];
+					if (depth < scanImageP.data_n[3])
+					{
+						scanImageP = *cloudIT;
+						scanImageP.data_n[3] = depth;
 					}
 				}
-				std::cout << transform << '\n';*/
 
-				//pcl::PointCloud<PointPCD>::Ptr scanImage(new );
+				//
+				pcl::PCLPointCloud2::Ptr blob(new pcl::PCLPointCloud2);
+				pcl::toPCLPointCloud2(*scanImage, *blob);
+
+#ifdef POINT_PCD_WITH_NORMAL
+				// Normal
+				{
+					std::stringstream fileName;
+					fileName << "scan" << scanID << "_Normal.png";
+					std::string filePath = (scanImagePath / boost::filesystem::path(fileName.str())).string();
+
+					pcl::PCLImage image;
+					pcl::io::PointCloudImageExtractorFromNormalField<PointPCD> pcie;
+					pcie.setPaintNaNsWithBlack(true);
+					if (!pcie.extract(cloud, image))
+						throw pcl::PCLException("Failed to extract an image from Normal field .");
+					pcl::io::savePNGFile(filePath, image);
+				}
+
+				// Curvature
+				{
+					std::stringstream fileName;
+					fileName << "scan" << scanID << "_Curvature.png";
+					std::string filePath = (scanImagePath / boost::filesystem::path(fileName.str())).string();
+
+					pcl::PCLImage image;
+					pcl::io::PointCloudImageExtractorFromCurvatureField<PointPCD> pcie;
+					pcie.setPaintNaNsWithBlack(true);
+					pcie.setScalingMethod(pcie.SCALING_NO);
+					if (!pcie.extract(cloud, image))
+						throw pcl::PCLException("Failed to extract an image from Curvature field .");
+					pcl::io::savePNGFile(filePath, image);
+				}
+#endif
+#ifdef POINT_PCD_WITH_RGB
+				{
+					std::stringstream fileName;
+					fileName << "scan" << scanID << "_RGB.png";
+					std::string filePath = (scanImagePath / boost::filesystem::path(fileName.str())).string();
+
+					pcl::PCLImage image;
+					pcl::io::PointCloudImageExtractorFromRGBField<PointPCD> pcie;
+					pcie.setPaintNaNsWithBlack(true);
+					if (!pcie.extract(cloud, image))
+						throw pcl::PCLException("Failed to extract an image from RGB field .");
+					pcl::io::savePNGFile(filePath, image);
+				}
+#endif
+#ifdef POINT_PCD_WITH_INTENSITY
+				{
+					std::stringstream fileName;
+					fileName << "scan" << scanID << "_Intensity.png";
+					std::string filePath = (scanImagePath / boost::filesystem::path(fileName.str())).string();
+
+					pcl::PCLImage image;
+					pcl::io::PointCloudImageExtractorFromIntensityField<PointPCD> pcie;
+					pcie.setPaintNaNsWithBlack(true);
+					pcie.setScalingMethod(pcie.SCALING_NO);
+					if (!pcie.extract(cloud, image))
+						throw pcl::PCLException("Failed to extract an image from Intensity field .");
+					pcl::io::savePNGFile(filePath, image);
+				}
+#endif
+#ifdef POINT_PCD_WITH_LABEL
+				{
+					std::stringstream fileName;
+					fileName << "scan" << scanID << "_Label.png";
+					std::string filePath = (scanImagePath / boost::filesystem::path(fileName.str())).string();
+
+					pcl::PCLImage image;
+					pcl::io::PointCloudImageExtractorFromLabelField<PointPCD> pcie;
+					pcie.setPaintNaNsWithBlack(true);
+					if (!pcie.extract(cloud, image))
+						throw pcl::PCLException("Failed to extract an image from Label field .");
+					pcl::io::savePNGFile(filePath, image);
+				}
+#endif
+				//
+				scanID++;
 			}
 		}
 		catch (std::exception& ex)

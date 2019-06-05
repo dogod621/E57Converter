@@ -209,15 +209,15 @@ namespace e57
 		else return RAEMode::RAEMode_UNKNOWN;
 	}
 
-	Eigen::Vector3f RAEToXYZ(RAEMode type, const Eigen::Vector3f& p)
+	Eigen::Vector3d RAEToXYZ(RAEMode type, const Eigen::Vector3d& p)
 	{
-		Eigen::Vector3f p2;
+		Eigen::Vector3d p2;
 
-		float r = p.x();
-		float s_e = std::sinf(p.z());
-		float s_a = std::sinf(p.y());
-		float c_e = std::cosf(p.z());
-		float c_a = std::cosf(p.y());
+		double r = p.x();
+		double s_e = std::sin(p.z());
+		double s_a = std::sin(p.y());
+		double c_e = std::cos(p.z());
+		double c_a = std::cos(p.y());
 
 		switch (type)
 		{
@@ -335,104 +335,125 @@ namespace e57
 		}
 	}
 
-	Eigen::Vector3f XYZToRAE(RAEMode type, const Eigen::Vector3f& p)
+	Eigen::Vector3d XYZToRAE(RAEMode type, const Eigen::Vector3d& p)
 	{
-		Eigen::Vector3f p2;
-		float r = p.norm();
+		Eigen::Vector3d p2;
+		double r = p.norm();
 		p2.x() = r;
 
 		switch (type)
 		{
 		case RAEMode::N_X_Y:
-			p2.y() = std::atan2f(p.y(), p.x());
-			p2.z() = std::acosf(p.z() / r);
+			p2.y() = std::atan2(p.y(), p.x());
+			p2.z() = std::acos(p.z() / r);
 			return p2;
 
 		case RAEMode::N_X_Z:
-			p2.y() = std::atan2f(p.z(), p.x());
-			p2.z() = std::acosf(-p.y() / r);
+			p2.y() = std::atan2(p.z(), p.x());
+			p2.z() = std::acos(-p.y() / r);
 			return p2;
 
 		case RAEMode::N_Y_X:
-			p2.y() = std::atan2f(p.x(), p.y());
-			p2.z() = std::acosf(-p.z() / r);
+			p2.y() = std::atan2(p.x(), p.y());
+			p2.z() = std::acos(-p.z() / r);
 			return p2;
 
 		case RAEMode::N_Y_Z:
-			p2.y() = std::atan2f(p.z(), p.y());
-			p2.z() = std::acosf(p.x() / r);
+			p2.y() = std::atan2(p.z(), p.y());
+			p2.z() = std::acos(p.x() / r);
 			return p2;
 
 		case RAEMode::N_Z_X:
-			p2.y() = std::atan2f(p.x(), p.z());
-			p2.z() = std::acosf(p.y() / r);
+			p2.y() = std::atan2(p.x(), p.z());
+			p2.z() = std::acos(p.y() / r);
 			return p2;
 
 		case RAEMode::N_Z_Y:
-			p2.y() = std::atan2f(p.y(), p.z());
-			p2.z() = std::acosf(-p.x() / r);
+			p2.y() = std::atan2(p.y(), p.z());
+			p2.z() = std::acos(-p.x() / r);
 			return p2;
 
 		case RAEMode::S_X_Y:
-			p2.y() = std::atan2f(p.y(), p.x());
-			p2.z() = M_PI - std::acosf(p.z() / r);
+			p2.y() = std::atan2(p.y(), p.x());
+			p2.z() = M_PI - std::acos(p.z() / r);
 			return p2;
 
 		case RAEMode::S_X_Z:
-			p2.y() = std::atan2f(p.z(), p.x());
-			p2.z() = M_PI - std::acosf(-p.y() / r);
+			p2.y() = std::atan2(p.z(), p.x());
+			p2.z() = M_PI - std::acos(-p.y() / r);
 			return p2;
 
 		case RAEMode::S_Y_X:
-			p2.y() = std::atan2f(p.x(), p.y());
-			p2.z() = M_PI - std::acosf(-p.z() / r);
+			p2.y() = std::atan2(p.x(), p.y());
+			p2.z() = M_PI - std::acos(-p.z() / r);
 			return p2;
 
 		case RAEMode::S_Y_Z:
-			p2.y() = std::atan2f(p.z(), p.y());
-			p2.z() = M_PI - std::acosf(p.x() / r);
+			p2.y() = std::atan2(p.z(), p.y());
+			p2.z() = M_PI - std::acos(p.x() / r);
 			return p2;
 
 		case RAEMode::S_Z_X:
-			p2.y() = std::atan2f(p.x(), p.z());
-			p2.z() = M_PI - std::acosf(p.y() / r);
+			p2.y() = std::atan2(p.x(), p.z());
+			p2.z() = M_PI - std::acos(p.y() / r);
 			return p2;
 
 		case RAEMode::S_Z_Y:
-			p2.y() = std::atan2f(p.y(), p.z());
-			p2.z() = M_PI - std::acosf(-p.x() / r);
+			p2.y() = std::atan2(p.y(), p.z());
+			p2.z() = M_PI - std::acos(-p.x() / r);
 			return p2;
 
 		case RAEMode::E_X_Y:
-			p2.y() = std::atan2f(p.y(), p.x());
-			p2.z() = std::asinf(p.z() / r);
+			p2.y() = std::atan2(p.y(), p.x());
+			p2.z() = std::asin(p.z() / r);
 			return p2;
 
 		case RAEMode::E_X_Z:
-			p2.y() = std::atan2f(p.z(), p.x());
-			p2.z() = std::asinf(-p.y() / r);
+			p2.y() = std::atan2(p.z(), p.x());
+			p2.z() = std::asin(-p.y() / r);
 			return p2;
 
 		case RAEMode::E_Y_X:
-			p2.y() = std::atan2f(p.x(), p.y());
-			p2.z() = std::asinf(-p.z() / r);
+			p2.y() = std::atan2(p.x(), p.y());
+			p2.z() = std::asin(-p.z() / r);
 			return p2;
 
 		case RAEMode::E_Y_Z:
-			p2.y() = std::atan2f(p.z(), p.y());
-			p2.z() = std::asinf(p.x() / r);
+			p2.y() = std::atan2(p.z(), p.y());
+			p2.z() = std::asin(p.x() / r);
 			return p2;
 
 		case RAEMode::E_Z_X:
-			p2.y() = std::atan2f(p.x(), p.z());
-			p2.z() = std::asinf(p.y() / r);
+			p2.y() = std::atan2(p.x(), p.z());
+			p2.z() = std::asin(p.y() / r);
 			return p2;
 
 		case RAEMode::E_Z_Y:
-			p2.y() = std::atan2f(p.y(), p.z());
-			p2.z() = std::asinf(-p.x() / r);
+			p2.y() = std::atan2(p.y(), p.z());
+			p2.z() = std::asin(-p.x() / r);
 			return p2;
 
+		default:
+			throw std::exception("RAEMode is not support.");
+			break;
+		}
+	}
+
+	Eigen::Vector2d RAEToUV(RAEMode type, const Eigen::Vector3d& p)
+	{
+		Eigen::Vector2d p2;
+		switch (type)
+		{
+		case RAEMode::E_X_Y:
+			p2.x() = p.y();
+			p2.y() = p.z() + (M_PI * 0.5);
+			if (p2.x() < 0)
+				p2.x() += 2.0 * M_PI;
+			p2.x() /= (2.0 * M_PI);
+			p2.y() /= M_PI;
+			p2.x() = std::min(std::max(0.0, p2.x()), 1.0);
+			p2.y() = std::min(std::max(0.0, p2.y()), 1.0);
+			return p2;
 		default:
 			throw std::exception("RAEMode is not support.");
 			break;
@@ -601,7 +622,7 @@ namespace e57
 
 					case CoodSys::RAE:
 					{
-						Eigen::Vector3f xyz = RAEToXYZ(raeMode, Eigen::Vector3f(_x[pi], _y[pi], _z[pi]));
+						Eigen::Vector3d xyz = RAEToXYZ(raeMode, Eigen::Vector3d(_x[pi], _y[pi], _z[pi]));
 
 						sp.x = xyz.x();
 						sp.y = xyz.y();
@@ -637,8 +658,8 @@ namespace e57
 				}
 #endif
 
-#ifdef POINT_E57_WITH_SCANID
-				sp.scanID = (uint32_t)ID;
+#ifdef POINT_E57_WITH_LABEL
+				sp.label = (uint32_t)ID;
 #endif
 				if (sp.Valid())
 					scanCloud.push_back(sp);
