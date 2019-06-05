@@ -225,6 +225,7 @@ namespace e57
 			pcl::VoxelGrid<PointE57> vf;
 			pcl::StatisticalOutlierRemoval<PointE57> olr;
 			pcl::MovingLeastSquares<PointE57, PointPCD> mls;
+			pcl::NormalEstimation<PointE57, PointPCD> ne;
 			pcl::CropBox<PointPCD> cb;
 			
 			//
@@ -237,12 +238,18 @@ namespace e57
 
 				//
 				pcl::search::KdTree<PointE57>::Ptr tree(new pcl::search::KdTree<PointE57>());
-				mls.setComputeNormals(PCD_CAN_CONTAIN_NORMAL);
-				mls.setPolynomialOrder(polynomialOrder);
-				mls.setSearchMethod(tree);
-				mls.setSearchRadius(searchRadius);
-
-				//
+				if (polynomialOrder > 0)
+				{
+					mls.setComputeNormals(PCD_CAN_CONTAIN_NORMAL);
+					mls.setPolynomialOrder(polynomialOrder);
+					mls.setSearchMethod(tree);
+					mls.setSearchRadius(searchRadius);
+				}
+				else
+				{
+					ne.setSearchMethod(tree);
+					ne.setRadiusSearch(searchRadius);
+				}
 			}
 
 			//
@@ -331,9 +338,19 @@ namespace e57
 							pcdCloud_VF_OLR->resize(e57Cloud_VF_OLR->size());
 							for (std::size_t pi = 0; pi < e57Cloud_VF_OLR->size(); ++pi)
 								(*pcdCloud_VF_OLR)[pi].FromPointE57((*e57Cloud_VF_OLR)[pi]);
-							PCL_INFO("[e57::%s::ExportToPCD] Estimat Surface.\n", "Converter");
-							mls.setInputCloud(e57Cloud_VF_OLR);
-							mls.process(*pcdCloud_VF_OLR);
+
+							if (polynomialOrder > 0)
+							{
+								PCL_INFO("[e57::%s::ExportToPCD] Estimat Surface.\n", "Converter");
+								mls.setInputCloud(e57Cloud_VF_OLR);
+								mls.process(*pcdCloud_VF_OLR);
+							}
+							else
+							{
+								PCL_INFO("[e57::%s::ExportToPCD] Estimat Normal.\n", "Converter");
+								ne.setInputCloud(e57Cloud_VF_OLR);
+								ne.compute(*pcdCloud_VF_OLR);
+							}
 						}
 
 						// Crop Box

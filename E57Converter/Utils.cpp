@@ -66,7 +66,7 @@ void PrintHelp(int argc, char **argv)
 		PRINT_HELP("\t"	, "dst"						, "sting \"\""						, "Output pcd pointCloud file.");
 		PRINT_HELP("\t"	, "voxelUnit"				, "float 0.01"						, "Gird voxel size in meters.");
 		PRINT_HELP("\t"	, "searchRadiusNumVoxels"	, "int 8"							, "Search radius(unit is voxel), this is used for surface normal estimation and outlier removal.");
-		PRINT_HELP("\t"	, "polynomialOrder"			, "int 3"							, "Parameter for MovingLeastSquares to esitmate surface.");
+		PRINT_HELP("\t"	, "polynomialOrder"			, "int -1"							, "(Optional, set to negative to close it)Parameter for MovingLeastSquares to esitmate surface. If closed, use NormalEstimation instead, or it will use MovingLeastSquares to filter and estimate normal of surface.");
 	}
 
 	std::cout << "Parmameters of -convert -src \"*.pcd\"  -dst \"*.ply\":=======================================================================================================" << std::endl << std::endl;
@@ -352,7 +352,7 @@ void Convert_OCT_PCD(const boost::filesystem::path& srcFilePath, const boost::fi
 {
 	double voxelUnit = 0.01; // 1cm for default
 	unsigned int searchRadiusNumVoxels = 8; // searchRadius 8cm for default
-	int polynomialOrder = 3;
+	int polynomialOrder = -1;
 
 	pcl::console::parse_argument(argc, argv, "-voxelUnit", voxelUnit);
 	pcl::console::parse_argument(argc, argv, "-searchRadiusNumVoxels", searchRadiusNumVoxels);
