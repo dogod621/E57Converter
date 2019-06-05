@@ -104,9 +104,9 @@ namespace e57
 					// Save scan info
 					scanInfo[scan.ID]["coodSys"] = CoodSysToStr(scan.coodSys);
 					scanInfo[scan.ID]["raeMode"] = RAEModeToStr(scan.raeMode);
-					std::stringstream ss;
-					ss << scan.transform;
-					scanInfo[scan.ID]["transform"] = ss.str();
+					for (int r = 0; r < 4; ++r)
+						for (int c = 0; c < 4; ++c)
+							scanInfo[scan.ID]["transform"].push_back(scan.transform(r, c));
 					scanInfo[scan.ID]["hasPointXYZ"] = scan.hasPointXYZ;
 					scanInfo[scan.ID]["hasPointRGB"] = scan.hasPointRGB;
 					scanInfo[scan.ID]["hasPointI"] = scan.hasPointI;
@@ -194,7 +194,37 @@ namespace e57
 
 			for (nlohmann::json::iterator it = scanInfo.begin(); it != scanInfo.end(); ++it)
 			{
-				std::cout << *it << '\n';
+				Eigen::Matrix4d transform;
+				nlohmann::json::iterator it2 = (*it)["transform"].begin();
+				for (int r = 0; r < 4; ++r)
+				{
+					for (int c = 0; c < 4; ++c)
+					{
+						transform(r, c) = *it2;
+						++it2;
+					}
+				}
+				std::cout << transform << '\n'; 
+
+				//std::cout << *it << '\n'; 
+
+				//for (nlohmann::json::iterator it2 = (*it)["transform"].begin(); it2 != (*it)["transform"].end(); ++it2)
+
+
+				/*Eigen::Matrix4d transform;
+				std::stringstream ss;
+				std::string s = (*it)["transform"];
+				ss << s;
+				for (int r = 0; r < 4; ++r)
+				{
+					for (int c = 0; c < 4; ++c)
+					{
+						double v = 0.0;
+						ss >> v;
+						transform(r, c) = v;
+					}
+				}
+				std::cout << transform << '\n';*/
 
 				//pcl::PointCloud<PointPCD>::Ptr scanImage(new );
 			}

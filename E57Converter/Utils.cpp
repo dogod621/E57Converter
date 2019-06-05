@@ -197,7 +197,7 @@ void ReconstructScanImages(int argc, char **argv)
 	std::string coodSysStr = "XYZ";
 	pcl::console::parse_argument(argc, argv, "-coodSys", coodSysStr);
 	e57::CoodSys coodSys = e57::StrToCoodSys(coodSysStr);
-	std::cout << "Parmameters -coodSys: " << coodSysStr << std::endl;
+	std::cout << "Parmameters -coodSys: " << e57::CoodSysToStr(coodSys) << std::endl;
 
 	int width = 1024;
 	int height = 512;
@@ -209,7 +209,7 @@ void ReconstructScanImages(int argc, char **argv)
 	std::string raeModeStr = "E_X_Y";
 	pcl::console::parse_argument(argc, argv, "-raeMode", raeModeStr);
 	e57::RAEMode raeMode = e57::StrToRAEMode(raeModeStr);
-	std::cout << "Parmameters -raeMode: " << raeModeStr << std::endl;
+	std::cout << "Parmameters -raeMode: " << e57::RAEModeToStr(raeMode) << std::endl;
 
 	float fovy = 60.f;
 	pcl::console::parse_argument(argc, argv, "-fovy", fovy);
