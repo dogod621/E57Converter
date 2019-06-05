@@ -137,18 +137,304 @@ namespace e57
 	}
 
 	//
-	std::string CoodSysStr(CoodSys type)
+	std::string CoodSysToStr(CoodSys type)
 	{
 		switch (type)
 		{
-		case XYZ:
-			return "XYZ";
-			break;
-		case RAE:
-			return "RAE";
-			break;
+		case CoodSys::XYZ: return "XYZ"; break;
+		case CoodSys::RAE: return "RAE"; break;
+		default: return "UNKNOWN"; break;
+		}
+	}
+
+	std::string RAEModeToStr(RAEMode type)
+	{
+		switch (type)
+		{
+		case RAEMode::N_X_Y: return "N_X_Y"; break;
+		case RAEMode::N_X_Z: return "N_X_Z"; break;
+		case RAEMode::N_Y_X: return "N_Y_X"; break;
+		case RAEMode::N_Y_Z: return "N_Y_Z"; break;
+		case RAEMode::N_Z_X: return "N_Z_X"; break;
+		case RAEMode::N_Z_Y: return "N_Z_Y"; break;
+
+		case RAEMode::S_X_Y: return "S_X_Y"; break;
+		case RAEMode::S_X_Z: return "S_X_Z"; break;
+		case RAEMode::S_Y_X: return "S_Y_X"; break;
+		case RAEMode::S_Y_Z: return "S_Y_Z"; break;
+		case RAEMode::S_Z_X: return "S_Z_X"; break;
+		case RAEMode::S_Z_Y: return "S_Z_Y"; break;
+
+		case RAEMode::E_X_Y: return "E_X_Y"; break;
+		case RAEMode::E_X_Z: return "E_X_Z"; break;
+		case RAEMode::E_Y_X: return "E_Y_X"; break;
+		case RAEMode::E_Y_Z: return "E_Y_Z"; break;
+		case RAEMode::E_Z_X: return "E_Z_X"; break;
+		case RAEMode::E_Z_Y: return "E_Z_Y"; break;
+
+		default: return "UNKNOWN"; break;
+		}
+	}
+
+	CoodSys StrToCoodSys(const std::string& str)
+	{
+		if (str == "XYZ") return CoodSys::XYZ;
+		else if (str == "RAE") return CoodSys::RAE;
+		else return CoodSys::CoodSys_UNKNOWN;
+	}
+
+	RAEMode StrToRAEMode(const std::string& str)
+	{
+		if (str == "N_X_Y") return RAEMode::N_X_Y;
+		else if (str == "N_X_Z") return RAEMode::N_X_Z;
+		else if (str == "N_Y_X") return RAEMode::N_Y_X;
+		else if (str == "N_Y_Z") return RAEMode::N_Y_Z;
+		else if (str == "N_Z_X") return RAEMode::N_Z_X;
+		else if (str == "N_Z_Y") return RAEMode::N_Z_Y;
+
+		else if (str == "S_X_Y") return RAEMode::S_X_Y;
+		else if (str == "S_X_Z") return RAEMode::S_X_Z;
+		else if (str == "S_Y_X") return RAEMode::S_Y_X;
+		else if (str == "S_Y_Z") return RAEMode::S_Y_Z;
+		else if (str == "S_Z_X") return RAEMode::S_Z_X;
+		else if (str == "S_Z_Y") return RAEMode::S_Z_Y;
+
+		else if (str == "E_X_Y") return RAEMode::E_X_Y;
+		else if (str == "E_X_Z") return RAEMode::E_X_Z;
+		else if (str == "E_Y_X") return RAEMode::E_Y_X;
+		else if (str == "E_Y_Z") return RAEMode::E_Y_Z;
+		else if (str == "E_Z_X") return RAEMode::E_Z_X;
+		else if (str == "E_Z_Y") return RAEMode::E_Z_Y;
+
+		else return RAEMode::RAEMode_UNKNOWN;
+	}
+
+	Eigen::Vector3f RAEToXYZ(RAEMode type, const Eigen::Vector3f& p)
+	{
+		Eigen::Vector3f p2;
+
+		float r = p.x();
+		float s_e = std::sinf(p.z());
+		float s_a = std::sinf(p.y());
+		float c_e = std::cosf(p.z());
+		float c_a = std::cosf(p.y());
+
+		switch (type)
+		{
+		case RAEMode::N_X_Y:
+			p2.x() = r * s_e * c_a;
+			p2.y() = r * s_e * s_a;
+			p2.z() = r * c_e;
+			return p2;
+
+		case RAEMode::N_X_Z:
+			p2.x() = r * s_e * c_a;
+			p2.y() = -r * c_e;
+			p2.z() = r * s_e * s_a;
+			return p2;
+
+		case RAEMode::N_Y_X:
+			p2.x() = r * s_e * s_a;
+			p2.y() = r * s_e * c_a;
+			p2.z() = -r * c_e;
+			return p2;
+
+		case RAEMode::N_Y_Z:
+			p2.x() = r * c_e;
+			p2.y() = r * s_e * c_a;
+			p2.z() = r * s_e * s_a;
+			return p2;
+
+		case RAEMode::N_Z_X:
+			p2.x() = r * s_e * s_a;
+			p2.y() = r * c_e;
+			p2.z() = r * s_e * c_a;
+			return p2;
+
+		case RAEMode::N_Z_Y:
+			p2.x() = -r * c_e;
+			p2.y() = r * s_e * s_a;
+			p2.z() = r * s_e * c_a;
+			return p2;
+
+		case RAEMode::S_X_Y:
+			p2.x() = r * s_e * c_a;
+			p2.y() = r * s_e * s_a;
+			p2.z() = -r * c_e;
+			return p2;
+
+		case RAEMode::S_X_Z:
+			p2.x() = r * s_e * c_a;
+			p2.y() = r * c_e;
+			p2.z() = r * s_e * s_a;
+			return p2;
+
+		case RAEMode::S_Y_X:
+			p2.x() = r * s_e * s_a;
+			p2.y() = r * s_e * c_a;
+			p2.z() = r * c_e;
+			return p2;
+
+		case RAEMode::S_Y_Z:
+			p2.x() = -r * c_e;
+			p2.y() = r * s_e * c_a;
+			p2.z() = r * s_e * s_a;
+			return p2;
+
+		case RAEMode::S_Z_X:
+			p2.x() = r * s_e * s_a;
+			p2.y() = -r * c_e;
+			p2.z() = r * s_e * c_a;
+			return p2;
+
+		case RAEMode::S_Z_Y:
+			p2.x() = r * c_e;
+			p2.y() = r * s_e * s_a;
+			p2.z() = r * s_e * c_a;
+			return p2;
+
+		case RAEMode::E_X_Y:
+			p2.x() = r * c_e * c_a;
+			p2.y() = r * c_e * s_a;
+			p2.z() = r * s_e;
+			return p2;
+
+		case RAEMode::E_X_Z:
+			p2.x() = r * c_e * c_a;
+			p2.y() = -r * s_e;
+			p2.z() = r * c_e * s_a;
+			return p2;
+
+		case RAEMode::E_Y_X:
+			p2.x() = r * c_e * s_a;
+			p2.y() = r * c_e * c_a;
+			p2.z() = -r * s_e;
+			return p2;
+
+		case RAEMode::E_Y_Z:
+			p2.x() = r * s_e;
+			p2.y() = r * c_e * c_a;
+			p2.z() = r * c_e * s_a;
+			return p2;
+
+		case RAEMode::E_Z_X:
+			p2.x() = r * c_e * s_a;
+			p2.y() = r * s_e;
+			p2.z() = r * c_e * c_a;
+			return p2;
+
+		case RAEMode::E_Z_Y:
+			p2.x() = -r * s_e;
+			p2.y() = r * c_e * s_a;
+			p2.z() = r * c_e * c_a;
+			return p2;
+
 		default:
-			return "UNKNOWN";
+			throw std::exception("RAEMode is not support.");
+			break;
+		}
+	}
+
+	Eigen::Vector3f XYZToRAE(RAEMode type, const Eigen::Vector3f& p)
+	{
+		Eigen::Vector3f p2;
+		float r = p.norm();
+		p2.x() = r;
+
+		switch (type)
+		{
+		case RAEMode::N_X_Y:
+			p2.y() = std::atan2f(p.y(), p.x());
+			p2.z() = std::acosf(p.z() / r);
+			return p2;
+
+		case RAEMode::N_X_Z:
+			p2.y() = std::atan2f(p.z(), p.x());
+			p2.z() = std::acosf(-p.y() / r);
+			return p2;
+
+		case RAEMode::N_Y_X:
+			p2.y() = std::atan2f(p.x(), p.y());
+			p2.z() = std::acosf(-p.z() / r);
+			return p2;
+
+		case RAEMode::N_Y_Z:
+			p2.y() = std::atan2f(p.z(), p.y());
+			p2.z() = std::acosf(p.x() / r);
+			return p2;
+
+		case RAEMode::N_Z_X:
+			p2.y() = std::atan2f(p.x(), p.z());
+			p2.z() = std::acosf(p.y() / r);
+			return p2;
+
+		case RAEMode::N_Z_Y:
+			p2.y() = std::atan2f(p.y(), p.z());
+			p2.z() = std::acosf(-p.x() / r);
+			return p2;
+
+		case RAEMode::S_X_Y:
+			p2.y() = std::atan2f(p.y(), p.x());
+			p2.z() = M_PI - std::acosf(p.z() / r);
+			return p2;
+
+		case RAEMode::S_X_Z:
+			p2.y() = std::atan2f(p.z(), p.x());
+			p2.z() = M_PI - std::acosf(-p.y() / r);
+			return p2;
+
+		case RAEMode::S_Y_X:
+			p2.y() = std::atan2f(p.x(), p.y());
+			p2.z() = M_PI - std::acosf(-p.z() / r);
+			return p2;
+
+		case RAEMode::S_Y_Z:
+			p2.y() = std::atan2f(p.z(), p.y());
+			p2.z() = M_PI - std::acosf(p.x() / r);
+			return p2;
+
+		case RAEMode::S_Z_X:
+			p2.y() = std::atan2f(p.x(), p.z());
+			p2.z() = M_PI - std::acosf(p.y() / r);
+			return p2;
+
+		case RAEMode::S_Z_Y:
+			p2.y() = std::atan2f(p.y(), p.z());
+			p2.z() = M_PI - std::acosf(-p.x() / r);
+			return p2;
+
+		case RAEMode::E_X_Y:
+			p2.y() = std::atan2f(p.y(), p.x());
+			p2.z() = std::asinf(p.z() / r);
+			return p2;
+
+		case RAEMode::E_X_Z:
+			p2.y() = std::atan2f(p.z(), p.x());
+			p2.z() = std::asinf(-p.y() / r);
+			return p2;
+
+		case RAEMode::E_Y_X:
+			p2.y() = std::atan2f(p.x(), p.y());
+			p2.z() = std::asinf(-p.z() / r);
+			return p2;
+
+		case RAEMode::E_Y_Z:
+			p2.y() = std::atan2f(p.z(), p.y());
+			p2.z() = std::asinf(p.x() / r);
+			return p2;
+
+		case RAEMode::E_Z_X:
+			p2.y() = std::atan2f(p.x(), p.z());
+			p2.z() = std::asinf(p.y() / r);
+			return p2;
+
+		case RAEMode::E_Z_Y:
+			p2.y() = std::atan2f(p.y(), p.z());
+			p2.z() = std::asinf(-p.x() / r);
+			return p2;
+
+		default:
+			throw std::exception("RAEMode is not support.");
 			break;
 		}
 	}
@@ -231,6 +517,7 @@ namespace e57
 				else if (proto.isDefined("sphericalRange") && proto.isDefined("sphericalAzimuth") && proto.isDefined("sphericalElevation"))
 				{
 					coodSys = CoodSys::RAE;
+					raeMode = RAEMode::E_X_Y; // E57 use this
 					hasPointXYZ = true;
 					protoXNode = std::shared_ptr<e57::Node>(new e57::Node(proto.get("sphericalRange")));
 					protoYNode = std::shared_ptr<e57::Node>(new e57::Node(proto.get("sphericalAzimuth")));
@@ -314,19 +601,16 @@ namespace e57
 
 					case CoodSys::RAE:
 					{
-						double s_t = std::sin(_z[pi]);
-						double s_p = std::sin(_y[pi]);
-						double c_t = std::cos(_z[pi]);
-						double c_p = std::cos(_y[pi]);
+						Eigen::Vector3f xyz = RAEToXYZ(raeMode, Eigen::Vector3f(_x[pi], _y[pi], _z[pi]));
 
-						sp.x = _x[pi] * c_t * c_p;
-						sp.y = _x[pi] * c_t * s_p;
-						sp.z = _x[pi] * s_t;
+						sp.x = xyz.x();
+						sp.y = xyz.y();
+						sp.z = xyz.z();
 					}
 					break;
 
 					default:
-						throw pcl::PCLException("Coordinate system invalid!!?");
+						throw std::exception("Coordinate system invalid!!?");
 						break;
 					}
 				}

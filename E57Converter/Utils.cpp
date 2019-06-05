@@ -22,8 +22,8 @@ void Start(int argc, char **argv)
 		else if (pcl::console::find_switch(argc, argv, "-convert"))
 			Convert(argc, argv);
 
-		else if (pcl::console::find_switch(argc, argv, "-saveScanImage"))
-			SaveScanImage(argc, argv);
+		else if (pcl::console::find_switch(argc, argv, "-reconstructScanImages"))
+			ReconstructScanImages(argc, argv);
 
 		else if (pcl::console::find_switch(argc, argv, "-buildLOD"))
 			BuildLOD(argc, argv);
@@ -80,16 +80,22 @@ void PrintHelp(int argc, char **argv)
 
 	std::cout << "Help Functions:===========================================================================================================================================" << std::endl << std::endl;
 	{
-		PRINT_HELP("\t"	, "saveScanImage"			, ""								, "Command that save scan images of imported e57 files to output folder.");
+		PRINT_HELP("\t"	, "reconstructScanImages"	, ""								, "Command that reconstruct scan images of converted PCD.");
 		PRINT_HELP("\t"	, "printE57Format"			, ""								, "Command that print formate of e57 file.");
 		PRINT_HELP("\t"	, "buildLOD"				, ""								, "Command that buildLOD for OutOfCoreOctree.");
 		PRINT_HELP("\t"	, "h"						, ""								, "Command that Print help.");
 	}
 
-	std::cout << "Parmameters of -saveScanImage:============================================================================================================================" << std::endl << std::endl;
+	std::cout << "Parmameters of -reconstructScanImages:====================================================================================================================" << std::endl << std::endl;
 	{
 		PRINT_HELP("\t"	, "src"						, "sting \"\""						, "Input OutOfCoreOctree file.");
+		PRINT_HELP("\t"	, "pcd"						, "sting \"\""						, "Input pcd file.");
 		PRINT_HELP("\t"	, "dst"						, "sting \"\""						, "Output folder.");
+		PRINT_HELP("\t"	, "coodSys"					, "sting \"XYZ\""					, "Specify scanner coordinate system. If is XYZ, means it is a camera. If is RAE, means it is a 360 camera.");
+		PRINT_HELP("\t"	, "width"					, "int 1024"						, "Specify scanImage width.");
+		PRINT_HELP("\t"	, "height"					, "int 512"							, "Specify scanImage height.");
+		PRINT_HELP("\t"	, "raeMode"					, "sting \"E_X_Y\""					, "(Only used when -coodSys \"RAE\" ) Specify scanner RAE coordinate system mode.");
+		PRINT_HELP("\t"	, "fovy"					, "float 60"						, "(Only used when -coodSys \"XYZ\" ) Specify scanner projection fovy in degrees.");
 	}
 
 	std::cout << "Parmameters of -printE57Format:===========================================================================================================================" << std::endl << std::endl;
@@ -148,25 +154,37 @@ void Convert(int argc, char **argv)
 	}
 }
 
-void SaveScanImage(int argc, char **argv)
+void ReconstructScanImages(int argc, char **argv)
 {
-	std::cout << "SaveScanImage:" << std::endl;
+	std::cout << "ReconstructScanImages:" << std::endl;
 
 	std::string _srcFilePath = "";
+	std::string _pcdFilePath = "";
 	std::string _dstFilePath = "";
 	pcl::console::parse_argument(argc, argv, "-src", _srcFilePath);
+	pcl::console::parse_argument(argc, argv, "-pcd", _pcdFilePath);
 	pcl::console::parse_argument(argc, argv, "-dst", _dstFilePath);
 
 	boost::filesystem::path srcFilePath(_srcFilePath);
+	boost::filesystem::path pcdFilePath(_pcdFilePath);
 	boost::filesystem::path dstFilePath(_dstFilePath);
+
 	FileType srcFileType = GetFileType(srcFilePath);
+	FileType pcdFileType = GetFileType(pcdFilePath);
 
 	std::cout << "Parmameters -src: " << srcFilePath << std::endl;
+	std::cout << "Parmameters -pcd: " << pcdFilePath << std::endl;
 	std::cout << "Parmameters -dst: " << dstFilePath << std::endl;
 
 	if (srcFileType != FileType::OCT)
 	{
 		std::cout << "srcFileType is not OutOfCoreOctree." << std::endl;
+		exit(EXIT_FAILURE);
+	}
+
+	if (pcdFileType != FileType::PCD)
+	{
+		std::cout << "pcdFileType is not pcd." << std::endl;
 		exit(EXIT_FAILURE);
 	}
 
@@ -176,8 +194,32 @@ void SaveScanImage(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
+	std::string coodSysStr = "XYZ";
+	pcl::console::parse_argument(argc, argv, "-coodSys", coodSysStr);
+	e57::CoodSys coodSys = e57::StrToCoodSys(coodSysStr);
+	std::cout << "Parmameters -coodSys: " << coodSysStr << std::endl;
+
+	int width = 1024;
+	int height = 512;
+	pcl::console::parse_argument(argc, argv, "-width", width);
+	pcl::console::parse_argument(argc, argv, "-height", height);
+	std::cout << "Parmameters -width: " << width << std::endl;
+	std::cout << "Parmameters -height: " << height << std::endl;
+
+	std::string raeModeStr = "E_X_Y";
+	pcl::console::parse_argument(argc, argv, "-raeMode", raeModeStr);
+	e57::RAEMode raeMode = e57::StrToRAEMode(raeModeStr);
+	std::cout << "Parmameters -raeMode: " << raeModeStr << std::endl;
+
+	float fovy = 60.f;
+	pcl::console::parse_argument(argc, argv, "-fovy", fovy);
+	std::cout << "Parmameters -fovy: " << fovy << std::endl;
+	fovy = fovy * M_PI / 180.f;
+
+	pcl::PointCloud<PointPCD>::Ptr cloud(new pcl::PointCloud<PointPCD>);
+	pcl::io::loadPCDFile(pcdFilePath.string(), *cloud);
 	std::shared_ptr < e57::Converter > e57Converter = std::shared_ptr < e57::Converter >(new e57::Converter(srcFilePath));
-	e57Converter->SaveScanImages(dstFilePath);
+	e57Converter->ReconstructScanImages(*cloud, dstFilePath, coodSys, raeMode, fovy, width, height);
 }
 
 void PrintE57Format(int argc, char **argv)

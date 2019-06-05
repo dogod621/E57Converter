@@ -55,7 +55,7 @@ void Start(int argc, char **argv);
 //
 void PrintHelp(int argc, char **argv);
 void Convert(int argc, char **argv);
-void SaveScanImage(int argc, char **argv);
+void ReconstructScanImages(int argc, char **argv);
 void PrintE57Format(int argc, char **argv);
 void BuildLOD(int argc, char **argv);
 

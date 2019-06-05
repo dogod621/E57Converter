@@ -17,12 +17,12 @@
 #include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/io/io.h>
 #include <pcl/io/pcd_io.h>
+#include <pcl/io/png_io.h>
 #include <pcl/pcl_macros.h>
 #include <pcl/outofcore/outofcore_impl.h>
 #include <pcl/features/normal_3d.h>
 #include <pcl/surface/mls.h>
 
-#include "nlohmann/json.hpp"
 
 //#include "ReCapHDRI.h"
 
@@ -33,6 +33,14 @@ namespace e57
 		try
 		{
 			oct = OCT::Ptr(new OCT(min, max, resolution, octPath / boost::filesystem::path("octRoot.oct_idx"), coordSys));
+
+			// Init scanInfo file
+			scanInfo.clear();
+			std::ofstream scanFile((octPath / boost::filesystem::path("scan.txt")).string(), std::ios_base::out);
+			if (!scanFile)
+				throw pcl::PCLException("Create scanFile " + (octPath / boost::filesystem::path("scan.txt")).string() + " failed.");
+			scanFile << scanInfo;
+			scanFile.close();
 		}
 		catch (std::exception& ex)
 		{
@@ -51,6 +59,13 @@ namespace e57
 		try
 		{
 			oct = OCT::Ptr(new OCT(octPath / boost::filesystem::path("octRoot.oct_idx"), true));
+
+			// Load scanInfo file
+			std::ifstream scanFile((octPath / boost::filesystem::path("scan.txt")).string(), std::ios_base::in);
+			if (!scanFile)
+				throw pcl::PCLException("Create scanFile " + (octPath / boost::filesystem::path("scan.txt")).string() + " failed.");
+			scanFile >> scanInfo;
+			scanFile.close();
 		}
 		catch (std::exception& ex)
 		{
@@ -71,8 +86,8 @@ namespace e57
 			e57::ImageFile imf(e57Path.string().c_str(), "r");
 			e57::VectorNode data3D(imf.root().get("data3D"));
 			e57::VectorNode images2D(imf.root().get("images2D"));
-			nlohmann::json scanJson;
 
+			scanInfo.clear();
 			for (int64_t scanID = 0; scanID < data3D.childCount(); ++scanID)
 			{
 				Scan scan;
@@ -87,14 +102,15 @@ namespace e57
 					scan.Load(imf, data3D, scanID);
 
 					// Save scan info
-					scanJson[scan.ID]["coodSys"] = CoodSysStr(scan.coodSys);
+					scanInfo[scan.ID]["coodSys"] = CoodSysToStr(scan.coodSys);
+					scanInfo[scan.ID]["raeMode"] = RAEModeToStr(scan.raeMode);
 					std::stringstream ss;
 					ss << scan.transform;
-					scanJson[scan.ID]["transform"] = ss.str();
-					scanJson[scan.ID]["hasPointXYZ"] = scan.hasPointXYZ;
-					scanJson[scan.ID]["hasPointRGB"] = scan.hasPointRGB;
-					scanJson[scan.ID]["hasPointI"] = scan.hasPointI;
-					scanJson[scan.ID]["numPoints"] = scan.numPoints;
+					scanInfo[scan.ID]["transform"] = ss.str();
+					scanInfo[scan.ID]["hasPointXYZ"] = scan.hasPointXYZ;
+					scanInfo[scan.ID]["hasPointRGB"] = scan.hasPointRGB;
+					scanInfo[scan.ID]["hasPointI"] = scan.hasPointI;
+					scanInfo[scan.ID]["numPoints"] = scan.numPoints;
 				}
 
 				// To OCT
@@ -120,7 +136,7 @@ namespace e57
 					oct->addPointCloud(scanCloud_removeBlack);
 
 					// Save scan info
-					scanJson[scan.ID]["numValidPoints"] = scanCloud_removeBlack->size();
+					scanInfo[scan.ID]["numValidPoints"] = scanCloud_removeBlack->size();
 				}
 			}
 
@@ -128,8 +144,8 @@ namespace e57
 			{
 				std::ofstream scanFile((octPath / boost::filesystem::path("scan.txt")).string(), std::ios_base::out);
 				if (!scanFile)
-					throw pcl::PCLException("Create scanFile " + (e57Path / boost::filesystem::path("scan.txt")).string() + " failed.");
-				scanFile << scanJson;
+					throw pcl::PCLException("Create scanFile " + (octPath / boost::filesystem::path("scan.txt")).string() + " failed.");
+				scanFile << scanInfo;
 				scanFile.close();
 			}
 
@@ -161,41 +177,38 @@ namespace e57
 		}
 	}
 
-	void Converter::SaveScanImages(const boost::filesystem::path& scanImagePath)
+	void Converter::ReconstructScanImages(pcl::PointCloud<PointPCD>& cloud, const boost::filesystem::path& scanImagePath, const CoodSys coodSys, const RAEMode raeMode, const float fovy, const unsigned int width, const unsigned int height)
 	{
-		if (!E57_CAN_CONTAIN_SCANID)
-			throw pcl::PCLException("You must compile the program with POINT_E57_WITH_SCANID definition to enable the function");
-
-		// not implement
-		/*
-		e57::ImageFile imf(filePath.string().c_str(), "r");
-		e57::VectorNode data3D(imf.root().get("data3D"));
-		e57::VectorNode images2D(imf.root().get("images2D"));
-
-		for (int64_t scanID = 0; scanID < data3D.childCount(); ++scanID)
+		try
 		{
-			E57Scan scanData;
+			if (!E57_CAN_CONTAIN_SCANID)
+				throw pcl::PCLException("You must compile the program with POINT_E57_WITH_SCANID definition to enable the function");
+
+			if (!boost::filesystem::exists(scanImagePath))
 			{
-				ReadScan(imf, data3D, scanID, scanData);
-				{
-					std::stringstream ss;
-					ss << "[e57::%s::Converter] ReadScan - scann" << scanID << ".\n";
-					PCL_INFO(ss.str().c_str(), "Converter");
-				}
-
-				if (scanImagePath.size() > 0)
-				{
-					if (!boost::filesystem::exists(scanImagePath))
-					{
-						boost::filesystem::create_directory(scanImagePath);
-						std::stringstream ss;
-						ss << "[e57::%s::Converter] OutOfCoreOctree create directory - " << scanImagePath << ".\n";
-						PCL_INFO(ss.str().c_str(), "Converter");
-					}
-
-				}
+				boost::filesystem::create_directory(scanImagePath);
+				std::stringstream ss;
+				ss << "[e57::%s::ReconstructScanImages] OutOfCoreOctree create directory - " << scanImagePath << ".\n";
+				PCL_INFO(ss.str().c_str(), "Converter");
 			}
-		}*/
+
+			for (nlohmann::json::iterator it = scanInfo.begin(); it != scanInfo.end(); ++it)
+			{
+				std::cout << *it << '\n';
+
+				//pcl::PointCloud<PointPCD>::Ptr scanImage(new );
+			}
+		}
+		catch (std::exception& ex)
+		{
+			std::stringstream ss;
+			ss << "[e57::%s::ReconstructScanImages] Got an std::exception, what=" << ex.what() << ".\n";
+			PCL_INFO(ss.str().c_str(), "Converter");
+		}
+		catch (...)
+		{
+			PCL_INFO("[e57::%s::ReconstructScanImages] Got an unknown exception.\n", "Converter");
+		}
 	}
 
 	void Converter::BuildLOD(const double sample_percent_arg)
