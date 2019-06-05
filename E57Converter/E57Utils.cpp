@@ -445,12 +445,8 @@ namespace e57
 		switch (type)
 		{
 		case RAEMode::E_X_Y:
-			p2.x() = p.y();
-			p2.y() = p.z() + (M_PI * 0.5);
-			if (p2.x() < 0)
-				p2.x() += 2.0 * M_PI;
-			p2.x() /= (2.0 * M_PI);
-			p2.y() /= M_PI;
+			p2.x() = 0.5 * (1.0 - p.y() / (M_PI));
+			p2.y() = 0.5 * (1.0 + p.z() / (M_PI*0.5f));
 			p2.x() = std::min(std::max(0.0, p2.x()), 1.0);
 			p2.y() = std::min(std::max(0.0, p2.y()), 1.0);
 			return p2;

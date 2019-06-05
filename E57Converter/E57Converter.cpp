@@ -247,32 +247,36 @@ namespace e57
 					scanPos = wordToScan * scanPos;
 
 					Eigen::Vector2d uv;
-					double depth = scanPos.norm();
+					double depth = 0;
 					switch (coodSys)
 					{
 					case CoodSys::RAE:
-						uv = e57::RAEToUV(raeMode, e57::XYZToRAE(raeMode, Eigen::Vector3d(scanPos.x(), scanPos.y(), scanPos.z())));
-						break;
+					{
+						Eigen::Vector3d rae = e57::XYZToRAE(raeMode, Eigen::Vector3d(scanPos.x(), scanPos.y(), scanPos.z()));
+						depth = rae.x();
+						uv = e57::RAEToUV(raeMode, rae);
+					}
+					break;
 
 					default:
 						throw pcl::PCLException("coodSys is not support.");
 						break;
 					}
 
-					std::size_t x = uv.x() * (width - 1);
-					std::size_t y = uv.y() * (height - 1);
-					std::size_t index = y * width + x;
+					std::size_t col = uv.x() * (width - 1);
+					std::size_t row = (1.0-uv.y()) * (height - 1);
+					std::size_t index = row * width + col;
 					PointPCD& scanImageP = (*scanImage)[index];
-					if (depth < scanImageP.data_n[3])
+					if (depth < scanImageP.data[3])
 					{
 						scanImageP = *cloudIT;
-						scanImageP.data_n[3] = depth;
+						scanImageP.data[3] = depth;
 					}
 				}
 
 				//
-				pcl::PCLPointCloud2::Ptr blob(new pcl::PCLPointCloud2);
-				pcl::toPCLPointCloud2(*scanImage, *blob);
+				//pcl::PCLPointCloud2::Ptr blob(new pcl::PCLPointCloud2);
+				//pcl::toPCLPointCloud2(*scanImage, *blob);
 
 #ifdef POINT_PCD_WITH_NORMAL
 				// Normal
@@ -284,7 +288,7 @@ namespace e57
 					pcl::PCLImage image;
 					pcl::io::PointCloudImageExtractorFromNormalField<PointPCD> pcie;
 					pcie.setPaintNaNsWithBlack(true);
-					if (!pcie.extract(cloud, image))
+					if (!pcie.extract(*scanImage, image))
 						throw pcl::PCLException("Failed to extract an image from Normal field .");
 					pcl::io::savePNGFile(filePath, image);
 				}
@@ -299,7 +303,7 @@ namespace e57
 					pcl::io::PointCloudImageExtractorFromCurvatureField<PointPCD> pcie;
 					pcie.setPaintNaNsWithBlack(true);
 					pcie.setScalingMethod(pcie.SCALING_NO);
-					if (!pcie.extract(cloud, image))
+					if (!pcie.extract(*scanImage, image))
 						throw pcl::PCLException("Failed to extract an image from Curvature field .");
 					pcl::io::savePNGFile(filePath, image);
 				}
@@ -313,7 +317,7 @@ namespace e57
 					pcl::PCLImage image;
 					pcl::io::PointCloudImageExtractorFromRGBField<PointPCD> pcie;
 					pcie.setPaintNaNsWithBlack(true);
-					if (!pcie.extract(cloud, image))
+					if (!pcie.extract(*scanImage, image))
 						throw pcl::PCLException("Failed to extract an image from RGB field .");
 					pcl::io::savePNGFile(filePath, image);
 				}
@@ -328,7 +332,7 @@ namespace e57
 					pcl::io::PointCloudImageExtractorFromIntensityField<PointPCD> pcie;
 					pcie.setPaintNaNsWithBlack(true);
 					pcie.setScalingMethod(pcie.SCALING_NO);
-					if (!pcie.extract(cloud, image))
+					if (!pcie.extract(*scanImage, image))
 						throw pcl::PCLException("Failed to extract an image from Intensity field .");
 					pcl::io::savePNGFile(filePath, image);
 				}
@@ -342,7 +346,7 @@ namespace e57
 					pcl::PCLImage image;
 					pcl::io::PointCloudImageExtractorFromLabelField<PointPCD> pcie;
 					pcie.setPaintNaNsWithBlack(true);
-					if (!pcie.extract(cloud, image))
+					if (!pcie.extract(*scanImage, image))
 						throw pcl::PCLException("Failed to extract an image from Label field .");
 					pcl::io::savePNGFile(filePath, image);
 				}
