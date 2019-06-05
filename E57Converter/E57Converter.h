@@ -29,6 +29,6 @@ namespace e57
 		void SaveScanImages(const boost::filesystem::path& scanImagePath);
 		void BuildLOD(const double sample_percent_arg);
 
-		void ExportToPCD(const double voxelUnit, const unsigned int searchRadiusNumVoxels, const int polynomialOrder, pcl::PointCloud<PointPCD>& out);
+		void ExportToPCD(const double voxelUnit, const unsigned int searchRadiusNumVoxels, const int meanK, const int polynomialOrder, pcl::PointCloud<PointPCD>& out);
 	};
 }
