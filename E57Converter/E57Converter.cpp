@@ -277,10 +277,6 @@ namespace e57
 					}
 				}
 
-				//
-				//pcl::PCLPointCloud2::Ptr blob(new pcl::PCLPointCloud2);
-				//pcl::toPCLPointCloud2(*scanImage, *blob);
-
 				// Z
 				{
 					std::stringstream fileName;
