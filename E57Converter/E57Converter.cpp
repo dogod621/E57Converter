@@ -7,6 +7,7 @@
 
 #include "E57Utils.h"
 #include "E57Converter.h"
+#include "BLK360HDRI.h"
 
 #include <pcl/common/common.h>
 #include <pcl/common/io.h>
@@ -459,6 +460,8 @@ namespace e57
 					std::stringstream ss;
 					ss << "[e57::%s::LoadScanHDRI] Find scanData for scan: " << i << ", which is from " << scanDataDirs[i].number << "-th scanning process.\n";
 					PCL_INFO(ss.str().c_str(), "Converter");
+
+					BLK360::HDRI hdri(scanDataDirs[i].dir);
 				}
 			}
 			break;
