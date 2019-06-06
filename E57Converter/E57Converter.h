@@ -33,6 +33,9 @@ namespace e57
 		//raeMode only for CoodSys::RAE, fovy only for CoodSys::XYZ
 		void ReconstructScanImages(pcl::PointCloud<PointPCD>& cloud, const boost::filesystem::path& scanImagePath, const CoodSys coodSys, const RAEMode raeMode, const float fovy, const unsigned int width, const unsigned int height);
 
+		// 
+		void LoadScanHDRI(const boost::filesystem::path& filePath, const Scanner& scanner);
+
 		//
 		void BuildLOD(const double sample_percent_arg);
 		void ExportToPCD(const double voxelUnit, const unsigned int searchRadiusNumVoxels, const int meanK, const int polynomialOrder, pcl::PointCloud<PointPCD>& out);

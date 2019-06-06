@@ -11,6 +11,10 @@
 
 #include <E57Format.h>
 
+std::string ToUpper(const std::string& s);
+bool IsDir(boost::filesystem::path filePath);
+int IsUnsignedInt(const std::string& s);
+
 namespace e57
 {
 	std::string NodeTypeStr(NodeType t);
@@ -34,6 +38,14 @@ namespace e57
 	void ParseNode(std::size_t pDepth, const e57::Node& pNode);
 
 	void PrintFormat(const boost::filesystem::path& e57Path);
+
+	//
+	enum Scanner : unsigned int
+	{
+		Scaner_UNKNOWN = 0,
+
+		BLK360 = 1,
+	};
 
 	// http://www.libe57.org/bestCoordinates.html
 	enum CoodSys : unsigned int
@@ -196,10 +208,11 @@ namespace e57
 	Eigen::Vector3d GetAzimuth0DegreeVector(unsigned int type);
 	Eigen::Vector3d GetAzimuth90DegreeVector(unsigned int type);
 
-
+	std::string ScannerToStr(Scanner type);
 	std::string CoodSysToStr(CoodSys type);
 	std::string RAEModeToStr(RAEMode type);
 
+	Scanner StrToScanner(const std::string& str);
 	CoodSys StrToCoodSys(const std::string& str);
 	RAEMode StrToRAEMode(const std::string& str);
 

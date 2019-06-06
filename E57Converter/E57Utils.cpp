@@ -4,6 +4,45 @@
 
 #include "E57Utils.h"
 
+std::string ToUpper(const std::string& s)
+{
+	std::string rs = s;
+	int shift = ((int)'A') - ((int)'a');
+	for (auto& c : rs)
+	{
+		int ci = (int)c;
+		if (ci <= ((int)'z') && ci >= ((int)'a'))
+			c = (char)(ci + shift);
+	}
+	return rs;
+}
+
+bool IsDir(boost::filesystem::path filePath)
+{
+	if (filePath.string().back() == '/' || filePath.string().back() == '\\')
+		return true;
+	return false;
+}
+
+int IsUnsignedInt(const std::string& s)
+{
+	std::string rs;
+	for (auto& c : s)
+	{
+		int ci = (int)c;
+		if (ci != ((int)' '))
+		{
+			if ((ci <= ((int)'9')) && (ci >= ((int)'0')))
+				rs.push_back(ci);
+			else
+				return -1;
+		}
+	}
+	if(rs.size() > 0)
+		return std::stoi(rs);
+	return -1;
+}
+
 namespace e57
 {
 #define TYPE_SPACE std::left << std::setw(6) 
@@ -181,6 +220,15 @@ namespace e57
 		}
 	}
 
+	std::string ScannerToStr(Scanner type)
+	{
+		switch (type)
+		{
+		case Scanner::BLK360: return "BLK360"; break;
+		default: return "UNKNOWN"; break;
+		}
+	}
+
 	std::string CoodSysToStr(CoodSys type)
 	{
 		switch (type)
@@ -274,6 +322,11 @@ namespace e57
 		}
 	}
 
+	Scanner StrToScanner(const std::string& str)
+	{
+		if (str == "BLK360") return Scanner::BLK360;
+		else return Scanner::Scaner_UNKNOWN;
+	}
 
 	CoodSys StrToCoodSys(const std::string& str)
 	{

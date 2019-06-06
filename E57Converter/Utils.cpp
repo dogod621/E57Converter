@@ -22,6 +22,9 @@ void Start(int argc, char **argv)
 		else if (pcl::console::find_switch(argc, argv, "-convert"))
 			Convert(argc, argv);
 
+		else if (pcl::console::find_switch(argc, argv, "-loadScanHDRI"))
+			LoadScanHDRI(argc, argv);
+		
 		else if (pcl::console::find_switch(argc, argv, "-reconstructScanImages"))
 			ReconstructScanImages(argc, argv);
 
@@ -47,6 +50,7 @@ void PrintHelp(int argc, char **argv)
 	std::cout << "Main Functions:===========================================================================================================================================" << std::endl << std::endl;
 	{
 		PRINT_HELP("\t"	, "convert"					, ""								, "Command that that convert inputFile to to outputFile.");
+		PRINT_HELP("\t"	, "loadScanHDRI"			, ""								, "Command that that load scanHDRI info into point cloud.");
 	}
 
 	std::cout << "Parmameters of -convert -src \"*.e57\"  -dst \"*/\":==========================================================================================================" << std::endl << std::endl;
@@ -76,6 +80,13 @@ void PrintHelp(int argc, char **argv)
 		PRINT_HELP("\t"	, "normal"					, ""								, "Output normal.");
 		PRINT_HELP("\t"	, "rgb"						, ""								, "Output rgb.");
 		PRINT_HELP("\t"	, "camera"					, ""								, "Output camera.");
+	}
+
+	std::cout << "Parmameters of -loadScanHDRI:=============================================================================================================================" << std::endl << std::endl;
+	{
+		PRINT_HELP("\t"	, "src"						, "sting \"\""						, "Input OutOfCoreOctree file.");
+		PRINT_HELP("\t"	, "data"					, "sting \"\""						, "Input scanned data file path.");
+		PRINT_HELP("\t"	, "scanner"					, "sting \"BLK360\""				, "Specify scanner type.");
 	}
 
 	std::cout << "Help Functions:===========================================================================================================================================" << std::endl << std::endl;
@@ -152,6 +163,38 @@ void Convert(int argc, char **argv)
 
 	default:break;
 	}
+}
+
+void LoadScanHDRI(int argc, char **argv)
+{
+	std::cout << "LoadScanHDRI:" << std::endl;
+
+	std::string _srcFilePath = "";
+	std::string _dataFilePath = "";
+	pcl::console::parse_argument(argc, argv, "-src", _srcFilePath);
+	pcl::console::parse_argument(argc, argv, "-data", _dataFilePath);
+
+	boost::filesystem::path srcFilePath(_srcFilePath);
+	boost::filesystem::path dataFilePath(_dataFilePath);
+
+	FileType srcFileType = GetFileType(srcFilePath);
+
+	std::cout << "Parmameters -src: " << srcFilePath << std::endl;
+	std::cout << "Parmameters -data: " << dataFilePath << std::endl;
+
+	if (srcFileType != FileType::OCT)
+	{
+		std::cout << "srcFileType is not OutOfCoreOctree." << std::endl;
+		exit(EXIT_FAILURE);
+	}
+
+	std::string scannerStr = "BLK360";
+	pcl::console::parse_argument(argc, argv, "-scanner", scannerStr);
+	e57::Scanner scanner = e57::StrToScanner(scannerStr);
+	std::cout << "Parmameters -scanner: " << e57::ScannerToStr(scanner) << std::endl;
+
+	std::shared_ptr < e57::Converter > e57Converter = std::shared_ptr < e57::Converter >(new e57::Converter(srcFilePath));
+	e57Converter->LoadScanHDRI(dataFilePath, scanner);
 }
 
 void ReconstructScanImages(int argc, char **argv)
@@ -452,30 +495,9 @@ void Convert_PLY_PLY(const boost::filesystem::path& srcFilePath, const boost::fi
 }
 
 //
-
-std::string ToUpper(const std::string& s)
-{
-	std::string rs = s;
-	int shift = ((int)'A') - ((int)'a');
-	for (auto& c : rs)
-	{
-		int ci = (int)c;
-		if (ci <= ((int)'z') && ci >= ((int)'a'))
-			c = (char)(ci + shift);
-	}
-	return rs;
-}
-
 ConvertType GetConvertType(FileType srcType, FileType dstType)
 {
 	return (ConvertType)((srcType << 16) | dstType);
-}
-
-bool IsDir(boost::filesystem::path filePath)
-{
-	if (filePath.string().back() == '/' || filePath.string().back() == '\\')
-		return true;
-	return false;
 }
 
 bool IsE57(boost::filesystem::path filePath)

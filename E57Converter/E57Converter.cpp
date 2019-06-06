@@ -3,6 +3,7 @@
 #include <fstream>
 #include <vector>
 #include <limits>
+#include <algorithm> 
 
 #include "E57Utils.h"
 #include "E57Converter.h"
@@ -397,6 +398,85 @@ namespace e57
 		catch (...)
 		{
 			PCL_INFO("[e57::%s::BuildLOD] Got an unknown exception.\n", "Converter");
+		}
+	}
+
+	struct ScanDataDir
+	{
+		int number;
+		boost::filesystem::path dir;
+
+		ScanDataDir(int number = -1, const boost::filesystem::path& dir = boost::filesystem::path(""))
+			: number(number), dir(dir)
+		{}
+	};
+
+	bool ScanDataDirCompare(const ScanDataDir& i, const ScanDataDir& j) { return (i.number < j.number); }
+
+	void Converter::LoadScanHDRI(const boost::filesystem::path& filePath, const Scanner& scanner)
+	{
+		try
+		{
+			if (!E57_CAN_CONTAIN_HDR)
+				throw pcl::PCLException("You must compile the program with POINT_E57_WITH_HDR definition to enable the function");
+
+			switch (scanner)
+			{
+			case Scanner::BLK360:
+			{
+				if (!(ToUpper(filePath.extension().string()) == ".RCP"))
+					throw pcl::PCLException("Scanner BLK360 need a .RCP file.");
+
+				boost::filesystem::path fileName = filePath.stem();
+				boost::filesystem::path fileDir = filePath.parent_path();
+				boost::filesystem::path dataDir = fileDir / boost::filesystem::path(fileName.string() + " Support") / boost::filesystem::path("sourcedata");
+
+				if (!boost::filesystem::is_directory(dataDir))
+					throw pcl::PCLException("Scanner BLK360 didnot save scanned sourcedata.");
+
+				std::vector<ScanDataDir> scanDataDirs;
+				for (auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(dataDir), {}))
+				{
+					if (boost::filesystem::is_directory(entry.path()))
+					{
+						std::string baseName = entry.path().stem().string();
+						if (baseName.find(fileName.string()) == 0)
+						{
+							int id = IsUnsignedInt(baseName.substr(fileName.string().size()));
+							if (id > 0)
+								scanDataDirs.push_back(ScanDataDir(id, entry.path()));
+						}
+					}
+				}
+
+				//
+				if(scanDataDirs.size() == 0)
+					throw pcl::PCLException("Do not find any scanned data.");
+
+				std::sort(scanDataDirs.begin(), scanDataDirs.end(), ScanDataDirCompare);
+				for (int i = 0; i < scanDataDirs.size(); i++)
+				{
+					std::stringstream ss;
+					ss << "[e57::%s::LoadScanHDRI] Find scanData for scan: " << i << ", which is from " << scanDataDirs[i].number << "-th scanning process.\n";
+					PCL_INFO(ss.str().c_str(), "Converter");
+				}
+			}
+			break;
+
+			default:
+				throw pcl::PCLException("Read scanned HDRI from the Scanner type is not support.");
+				break;
+			}
+		}
+		catch (std::exception& ex)
+		{
+			std::stringstream ss;
+			ss << "[e57::%s::LoadScanHDRI] Got an std::exception, what=" << ex.what() << ".\n";
+			PCL_INFO(ss.str().c_str(), "Converter");
+		}
+		catch (...)
+		{
+			PCL_INFO("[e57::%s::LoadScanHDRI] Got an unknown exception.\n", "Converter");
 		}
 	}
 

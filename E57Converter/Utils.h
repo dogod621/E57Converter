@@ -3,8 +3,6 @@
 #include <boost/filesystem.hpp>
 
 //
-std::string ToUpper(const std::string& s);
-
 enum FileType : unsigned int
 {
 	FileType_UNKNOWN = 0,
@@ -41,7 +39,6 @@ enum ConvertType : unsigned int
 };
 
 ConvertType GetConvertType(FileType srcType, FileType dstType);
-bool IsDir(boost::filesystem::path filePath);
 bool IsE57(boost::filesystem::path filePath);
 bool IsPCD(boost::filesystem::path filePath);
 bool IsOCT(boost::filesystem::path filePath);
@@ -55,6 +52,7 @@ void Start(int argc, char **argv);
 //
 void PrintHelp(int argc, char **argv);
 void Convert(int argc, char **argv);
+void LoadScanHDRI(int argc, char **argv);
 void ReconstructScanImages(int argc, char **argv);
 void PrintE57Format(int argc, char **argv);
 void BuildLOD(int argc, char **argv);
