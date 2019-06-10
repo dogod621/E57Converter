@@ -12,6 +12,9 @@
 #include <boost/filesystem.hpp>
 #include "nlohmann/json.hpp"
 #include "half.hpp"
+#include <opencv2/photo.hpp>
+#include "opencv2/imgcodecs.hpp"
+#include <opencv2/highgui.hpp>
 
 namespace BLK360
 {
@@ -19,16 +22,43 @@ namespace BLK360
 	{
 	public:
 		Eigen::Matrix4d worldToScan;
-		unsigned int width;
-		unsigned int height;
 		float fovy;
-		std::shared_ptr<float> data;
+		cv::Mat image;
 
-		HDRIScan(const unsigned int width=0, const unsigned int height=0, const float fovy = 0, const Eigen::Matrix4d& worldToScan = Eigen::Matrix4d::Identity())
-			: width(width), height(height), fovy(fovy), worldToScan(worldToScan)
+		HDRIScan(const unsigned int width=0, const unsigned int height=0, const float fovy = 0, const Eigen::Matrix4d& worldToScan = Eigen::Matrix4d::Identity(), const boost::filesystem::path& fileName = "", const std::string& format = "rgb32f")
+			: fovy(fovy), worldToScan(worldToScan)
 		{ 
 			if ((width * height) > 0)
-				data = std::shared_ptr<float>(new float[width * height]);
+			{
+				std::ifstream file(fileName.string(), std::ios_base::in | std::ios_base::binary);
+				if (!file)
+					throw pcl::PCLException("Cannot read file: " + fileName.string());
+
+				cv::Mat rawImage;
+				if (format == "rgb32f")
+				{
+					rawImage = cv::Mat(width, height, CV_32FC3);
+					file.read(reinterpret_cast<char *>(&rawImage.data), width * height * 3 * sizeof(float));
+				}
+				else if (format == "rgb16f")
+				{
+					rawImage = cv::Mat(width, height, CV_32FC3);
+					std::vector<half_float::half> rawData(width * height * 3);
+					float* data = reinterpret_cast<float *>(rawImage.data);
+					file.read(reinterpret_cast<char *>(&rawData[0]), rawData.size() * sizeof(half_float::half));
+					for (std::size_t i = 0; i < rawData.size(); ++i)
+						data[i] = (float)rawData[i];
+				}
+				else
+					throw pcl::PCLException("format: " + format + "is not support");
+
+				// The image raw data is rotated 90 degrees, and fip left-right
+				cv::cvtColor(rawImage, rawImage, cv::COLOR_BGR2RGB);
+				cv::rotate(rawImage, rawImage, cv::ROTATE_90_COUNTERCLOCKWISE);
+				cv::flip(rawImage, image, 1);
+
+				file.close();
+			}
 		}
 	};
 
@@ -56,11 +86,9 @@ namespace BLK360
 					for (int i = 0 ; i < j.size(); ++i)
 					{
 						Eigen::Matrix4d worldToScan;
-						unsigned int width = j[i]["width"];
-						unsigned int height = j[i]["height"];
+						unsigned int width = j[i]["height"]; // The image raw data is rotated 90 degrees, and fip left-right
+						unsigned int height = j[i]["width"]; // The image raw data is rotated 90 degrees, and fip left-right
 						std::string format = j[i]["format"];
-						if (format != "rgb16f" &&  format != "rgb32f")
-							throw pcl::PCLException("format: " + format + "is not support");
 
 						for (int m = 0; m < j[i]["calibration"].size(); ++m)
 							worldToScan(m%4, m/4) = j[i]["calibration"][m];
@@ -72,12 +100,16 @@ namespace BLK360
 							PCL_INFO(ss.str().c_str(), "HDRI");
 						}
 
-						//
 						float fonvy = 53.333333333; // Just get from trying, the original spec is 60, but that is not sutable. 
-						scans[i] = HDRIScan(width, height, fonvy, worldToScan);
-					}
+						std::string url = j[i]["sourceURI"];
+						scans[i] = HDRIScan(width, height, fonvy, worldToScan, (filePath / boost::filesystem::path(url).stem()), format);
 
-					
+						//
+						cv::Mat ldr;
+						cv::Ptr<cv::TonemapDrago> tonemapDrago = cv::createTonemapDrago(1.0, 0.7);
+						tonemapDrago->process(scans[i].image, ldr);
+						cv::imwrite((filePath / boost::filesystem::path(url).stem().replace_extension(".png") ).string(), ldr * 255);
+					}
 				}
 				else
 					throw pcl::PCLException("Cannot read file: " + (filePath / boost::filesystem::path("photos.json")).string());
