@@ -347,7 +347,7 @@ namespace e57
 					pcl::PCLImage image;
 					pcl::io::PointCloudImageExtractorFromIntensityField<PointPCD> pcie;
 					pcie.setPaintNaNsWithBlack(true);
-					pcie.setScalingMethod(pcie.SCALING_NO);
+					pcie.setScalingMethod(pcie.SCALING_FULL_RANGE);
 					if (!pcie.extract(*scanImage, image))
 						throw pcl::PCLException("Failed to extract an image from Intensity field .");
 					pcl::io::savePNGFile(filePath, image);

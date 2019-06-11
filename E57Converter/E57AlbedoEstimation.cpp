@@ -15,36 +15,36 @@ namespace e57
 		Eigen::Vector3f pointNormal(point.normal_x, point.normal_y, point.normal_z);
 		for (std::size_t idx = 0; idx < indices.size(); ++idx)
 		{
-			const Eigen::Vector3f nNormal(cloudNormal[idx].normal_x, cloudNormal[idx].normal_y, cloudNormal[idx].normal_z);
-			if (std::abs(nNormal.norm() - 1.0f) > 0.05f)
+			const Eigen::Vector3f scanNormal(cloudNormal[idx].normal_x, cloudNormal[idx].normal_y, cloudNormal[idx].normal_z);
+			if (std::abs(scanNormal.norm() - 1.0f) > 0.05f)
 			{
 				PCL_WARN("[e57::%s::ComputePointAlbedo] Search point normal is not valid, ignore.\n", "AlbedoEstimation");
 			}
 			else
 			{
-				const PointE57& nPoint = cloud[idx];
-				Eigen::Vector3f nPointPosition(nPoint.x, nPoint.y, nPoint.z);
-				const ScanInfo& nScanInfo = scanInfo[nPoint.label];
-				switch (nScanInfo.scanner)
+				const PointE57& scanPoint = cloud[idx];
+				Eigen::Vector3f scanPosition(scanPoint.x, scanPoint.y, scanPoint.z);
+				const ScanInfo& scanScanInfo = scanInfo[scanPoint.label];
+				switch (scanScanInfo.scanner)
 				{
 				case Scanner::BLK360:
 				{
-					Eigen::Vector3f measureVec = nScanInfo.position_float - nPointPosition;
-					float nDistance = measureVec.norm();
-					float nDotNL = std::abs(nNormal.dot(measureVec / nDistance));
-					float nDotNN = std::abs(nNormal.dot(pointNormal));
+					Eigen::Vector3f scanVector = scanScanInfo.position_float - scanPosition;
+					float scanDistance = scanVector.norm();
+					float scanDotNL = std::abs(scanNormal.dot(scanVector / scanDistance));
+					float scanDotNN = std::abs(scanNormal.dot(pointNormal));
 
 					// Ref - BLK 360 Spec - laser wavelength & Beam divergence : https://lasers.leica-geosystems.com/global/sites/lasers.leica-geosystems.com.global/files/leica_media/product_documents/blk/853811_leica_blk360_um_v2.0.0_en.pdf
 					// Ref - Gaussian beam : https://en.wikipedia.org/wiki/Gaussian_beam
 					// Ref - Beam divergence to Beam waist(w0) : http://www2.nsysu.edu.tw/optics/laser/angle.htm
-					float temp = nDistance / 26.2854504782;
+					float temp = scanDistance / 26.2854504782;
 					float nGaussianBeamFalloff = 1.0f / (1 + temp * temp);
 
-					float nFalloff = nDotNL * nGaussianBeamFalloff;
+					float nFalloff = scanDotNL * nGaussianBeamFalloff;
 					if (nFalloff > cutFalloff)
 					{
-						float weight = std::powf(std::abs(radius - (pointPosition - nPointPosition).norm()) / radius, distInterParm) * std::powf(nDotNN, angleInterParm)* std::powf(nDotNL, frontInterParm);
-						point.intensity += nPoint.intensity * weight / nFalloff;
+						float weight = std::powf(std::abs(radius - (pointPosition - scanPosition).norm()) / radius, distInterParm) * std::powf(scanDotNN, angleInterParm)* std::powf(scanDotNL, frontInterParm);
+						point.intensity += weight * (scanPoint.intensity / nFalloff);
 						sumWeight += weight;
 					}
 				}
