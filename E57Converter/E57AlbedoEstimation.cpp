@@ -2,16 +2,16 @@
 
 namespace e57
 {
-	inline bool AlbedoEstimation::ComputePointAlbedo(const pcl::PointCloud<PointE57>& cloud, const pcl::PointCloud<pcl::Normal>& cloudNormal, const std::size_t k, const std::vector<int>& indices, const std::vector<float>& distance, PointPCD& point)
+	inline bool AlbedoEstimation::ComputePointAlbedo(const pcl::PointCloud<PointE57>& cloud, const pcl::PointCloud<pcl::Normal>& cloudNormal, const std::size_t k, const std::vector<int>& indices, const std::vector<float>& distance, const PointE57& inPoint, PointPCD& outPoint)
 	{
 #ifdef POINT_E57_WITH_LABEL
 #ifdef POINT_E57_WITH_INTENSITY
 #ifdef POINT_PCD_WITH_INTENSITY
-		point.intensity = 0.0f;
+		outPoint.intensity = 0.0f;
 		float radius = search_radius_;
 		float sumWeight = 0.0f;
 		float cutFalloff = std::numeric_limits<float>::epsilon() * 100.0f;
-		Eigen::Vector3f pointNormal(point.normal_x, point.normal_y, point.normal_z);
+		Eigen::Vector3f pointNormal(outPoint.normal_x, outPoint.normal_y, outPoint.normal_z);
 		for (std::size_t idx = 0; idx < k; ++idx)
 		{
 			int px = indices[idx];
@@ -48,7 +48,7 @@ namespace e57
 					{
 						float weight = std::powf(std::abs(radius - d) / radius, distInterParm) * std::powf(scanDotNN, angleInterParm)* std::powf(scanDotNL, frontInterParm);// DEBUG
 						//float weight = std::powf(std::abs(radius - d) / radius, distInterParm) * std::powf(scanDotNN, angleInterParm); // DEBUG
-						point.intensity += weight * (scanPoint.intensity / nFalloff);
+						outPoint.intensity += weight * (scanPoint.intensity / nFalloff);
 						sumWeight += weight;
 					}
 				}
@@ -63,8 +63,8 @@ namespace e57
 		}
 		if (sumWeight > 0.0f)
 		{
-			point.intensity /= sumWeight;
-			if (point.intensity < 0)
+			outPoint.intensity /= sumWeight;
+			if (outPoint.intensity < 0)
 			{
 				PCL_WARN("[e57::%s::ComputePointAlbedo] Final intensity is negative!!?.\n", "AlbedoEstimation");
 				return false;
@@ -93,24 +93,25 @@ namespace e57
 		{
 			for (std::size_t idx = 0; idx < indices_->size(); ++idx)
 			{
-				PointPCD& point = output.points[idx];
-				if (std::abs(Eigen::Vector3f(point.normal_x, point.normal_y, point.normal_z).norm() - 1.0f) > 0.05f)
+				const PointE57& inPoint = (*input_)[(*indices_)[idx]];
+				PointPCD& outPoint = output.points[idx];
+				if (std::abs(Eigen::Vector3f(outPoint.normal_x, outPoint.normal_y, outPoint.normal_z).norm() - 1.0f) > 0.05f)
 				{
 					PCL_WARN("[e57::%s::computeFeature] Point normal is not valid!!?.\n", "AlbedoEstimation");
-					point.intensity = 0.0f;
+					outPoint.intensity = 0.0f;
 				}
 				else
 				{
 					if (ComputePointAlbedo(*surface_, *searchSurfaceNormal, 
 						this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists),
-						nn_indices, nn_dists, point))
+						nn_indices, nn_dists, inPoint, outPoint))
 					{
 						continue;
 					}
 					else
 					{
 						PCL_WARN("[e57::%s::computeFeature] ComputePointAlbedo failed.\n", "AlbedoEstimation");
-						point.intensity = 0.0f;
+						outPoint.intensity = 0.0f;
 					}
 				}
 			}
@@ -119,33 +120,34 @@ namespace e57
 		{
 			for (std::size_t idx = 0; idx < indices_->size(); ++idx)
 			{
-				PointPCD& point = output.points[idx];
-				if (pcl::isFinite((*input_)[(*indices_)[idx]]))
+				const PointE57& inPoint = (*input_)[(*indices_)[idx]];
+				PointPCD& outPoint = output.points[idx];
+				if (pcl::isFinite(inPoint))
 				{
-					if (std::abs(Eigen::Vector3f(point.normal_x, point.normal_y, point.normal_z).norm() - 1.0f) > 0.05f)
+					if (std::abs(Eigen::Vector3f(outPoint.normal_x, outPoint.normal_y, outPoint.normal_z).norm() - 1.0f) > 0.05f)
 					{
 						PCL_WARN("[e57::%s::computeFeature] Point normal is not valid!!?.\n", "AlbedoEstimation");
-						point.intensity = 0.0f;
+						outPoint.intensity = 0.0f;
 					}
 					else
 					{
 						if (ComputePointAlbedo(*surface_, *searchSurfaceNormal,
 							this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists),
-							nn_indices, nn_dists, point))
+							nn_indices, nn_dists, inPoint, outPoint))
 						{
 							continue;
 						}
 						else
 						{
 							PCL_WARN("[e57::%s::computeFeature] ComputePointAlbedo failed.\n", "AlbedoEstimation");
-							point.intensity = 0.0f;
+							outPoint.intensity = 0.0f;
 						}
 					}
 				}
 				else
 				{
 					PCL_WARN("[e57::%s::computeFeature] Input point contain non finite value!!?.\n", "AlbedoEstimation");
-					point.intensity = 0.0f;
+					outPoint.intensity = 0.0f;
 				}
 			}
 		}
@@ -181,24 +183,25 @@ namespace e57
 #endif
 			for (int idx = 0; idx < static_cast<int> (indices_->size()); ++idx)
 			{
-				PointPCD& point = output.points[idx];
-				if (std::abs(Eigen::Vector3f(point.normal_x, point.normal_y, point.normal_z).norm() - 1.0f) > 0.05f)
+				const PointE57& inPoint = (*input_)[(*indices_)[idx]];
+				PointPCD& outPoint = output.points[idx];
+				if (std::abs(Eigen::Vector3f(outPoint.normal_x, outPoint.normal_y, outPoint.normal_z).norm() - 1.0f) > 0.05f)
 				{
 					PCL_WARN("[e57::%s::computeFeature] Point normal is not valid!!?.\n", "AlbedoEstimation");
-					point.intensity = 0.0f;
+					outPoint.intensity = 0.0f;
 				}
 				else
 				{
-					if (ComputePointAlbedo(*surface_, *searchSurfaceNormal,
+					if (ComputePointAlbedo(*surface_, *searchSurfaceNormal, 
 						this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists),
-						nn_indices, nn_dists, point))
+						nn_indices, nn_dists, inPoint, outPoint))
 					{
 						continue;
 					}
 					else
 					{
 						PCL_WARN("[e57::%s::computeFeature] ComputePointAlbedo failed.\n", "AlbedoEstimation");
-						point.intensity = 0.0f;
+						outPoint.intensity = 0.0f;
 					}
 				}
 			}
@@ -210,33 +213,34 @@ namespace e57
 #endif
 			for (int idx = 0; idx < static_cast<int> (indices_->size()); ++idx)
 			{
-				PointPCD& point = output.points[idx];
-				if (pcl::isFinite((*input_)[(*indices_)[idx]]))
+				const PointE57& inPoint = (*input_)[(*indices_)[idx]];
+				PointPCD& outPoint = output.points[idx];
+				if (pcl::isFinite(inPoint))
 				{
-					if (std::abs(Eigen::Vector3f(point.normal_x, point.normal_y, point.normal_z).norm() - 1.0f) > 0.05f)
+					if (std::abs(Eigen::Vector3f(outPoint.normal_x, outPoint.normal_y, outPoint.normal_z).norm() - 1.0f) > 0.05f)
 					{
 						PCL_WARN("[e57::%s::computeFeature] Point normal is not valid!!?.\n", "AlbedoEstimation");
-						point.intensity = 0.0f;
+						outPoint.intensity = 0.0f;
 					}
 					else
 					{
 						if (ComputePointAlbedo(*surface_, *searchSurfaceNormal,
 							this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists),
-							nn_indices, nn_dists, point))
+							nn_indices, nn_dists, inPoint, outPoint))
 						{
 							continue;
 						}
 						else
 						{
 							PCL_WARN("[e57::%s::computeFeature] ComputePointAlbedo failed.\n", "AlbedoEstimation");
-							point.intensity = 0.0f;
+							outPoint.intensity = 0.0f;
 						}
 					}
 				}
 				else
 				{
 					PCL_WARN("[e57::%s::computeFeature] Input point contain non finite value!!?.\n", "AlbedoEstimation");
-					point.intensity = 0.0f;
+					outPoint.intensity = 0.0f;
 				}
 			}
 		}
