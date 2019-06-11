@@ -241,7 +241,7 @@ namespace e57
 				}
 
 				//
-				Eigen::Matrix4d wordToScan = it->transform;
+				Eigen::Matrix4d wordToScan = it->transform.inverse();
 
 				for (pcl::PointCloud<PointPCD>::iterator cloudIT = cloud.begin(); cloudIT != cloud.end(); ++cloudIT)
 				{
