@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Common.h"
-
 #include <opencv2/opencv.hpp>
+
+#include "Common.h"
 
 namespace e57
 {

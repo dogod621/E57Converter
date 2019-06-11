@@ -4,11 +4,6 @@
 #include <limits>
 #include <algorithm> 
 
-#include "E57Utils.h"
-#include "E57Converter.h"
-#include <E57AlbedoEstimation.h>
-#include "BLK360HDRI.h"
-
 #include <pcl/common/common.h>
 #include <pcl/common/io.h>
 #include <pcl/common/transforms.h>
@@ -24,10 +19,13 @@
 #include <pcl/conversions.h>
 #include <pcl/pcl_macros.h>
 #include <pcl/outofcore/outofcore_impl.h>
-#include <pcl/features/normal_3d.h>
+#include <pcl/features/normal_3d_omp.h>
 #include <pcl/surface/mls.h>
 
-//#include "ReCapHDRI.h"
+#include "E57Utils.h"
+#include "E57Converter.h"
+#include "E57AlbedoEstimation.h"
+#include "E57BLK360HDRI.h"
 
 namespace e57
 {
@@ -489,8 +487,8 @@ namespace e57
 			pcl::MovingLeastSquares<PointE57, PointPCD> mls;
 			pcl::CropBox<PointE57> cbE57;
 			pcl::CropBox<PointPCD> cbPCD;
-			pcl::NormalEstimation<PointE57, PointPCD> ne;
-			AlbedoEstimation ae;
+			pcl::NormalEstimationOMP<PointE57, PointPCD> ne;
+			AlbedoEstimationOMP ae;
 
 			//
 			{

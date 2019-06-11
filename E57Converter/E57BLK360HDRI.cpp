@@ -2,10 +2,10 @@
 #include <iostream>
 #include <vector>
 
-#include "BLK360HDRI.h"
-
 #include "nlohmann/json.hpp"
 #include "half.hpp"
+
+#include "E57BLK360HDRI.h"
 
 namespace e57
 {

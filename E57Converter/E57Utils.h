@@ -1,16 +1,14 @@
 #pragma once
 
-#include "Common.h"
 
 #include <memory>
-
-#include "PointType.h"
-
 #include <pcl/point_cloud.h>
 
-#include <E57Format.h>
-
+#include "E57Format.h"
 #include "nlohmann/json.hpp"
+
+#include "Common.h"
+#include "PointType.h"
 
 namespace e57
 {

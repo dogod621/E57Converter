@@ -2,11 +2,11 @@
 
 #include <vector>
 
-#include "Common.h"
-#include "E57Utils.h"
-
 #include <pcl/features/feature.h>
 #include <pcl/common/centroid.h>
+
+#include "Common.h"
+#include "E57Utils.h"
 
 namespace e57
 {
@@ -40,37 +40,7 @@ namespace e57
 			input_ = cloud;
 		}
 
-		inline bool ComputePointAlbedo(const pcl::PointCloud<PointE57> &cloud, const std::vector<int> &indices, float& albedo)
-		{
-#ifdef POINT_E57_WITH_LABEL
-#ifdef POINT_E57_WITH_INTENSITY
-#ifdef POINT_PCD_WITH_INTENSITY
-			/*std::vector<Eigen::Vector3d> viewVector;
-
-			for (std::size_t idx = 0; idx < indices->size(); ++idx)
-			{
-
-			}
-
-			return true;
-
-			switch (scanner)
-			{
-			case Scanner::BLK360:
-			{
-
-			}
-			break;
-
-			default:
-				PCL_WARN("[e57::%s::ComputePointAlbedo] Scanner type is not support, ignore AlbedoEstimation.\n", "AlbedoEstimation");
-			}*/
-#endif
-#endif
-#endif
-			return true;
-		}
-
+		inline bool ComputePointAlbedo(const pcl::PointCloud<PointE57> &cloud, const std::vector<int> &indices, float& albedo);
 
 
 	protected:
@@ -81,56 +51,42 @@ namespace e57
 			scanInfo = scanInfo_;
 		}
 
-		void computeFeature(PointCloudOut &output)
-		{
-#ifdef POINT_E57_WITH_LABEL
-#ifdef POINT_E57_WITH_INTENSITY
-#ifdef POINT_PCD_WITH_INTENSITY
-			std::vector<int> nn_indices(k_);
-			std::vector<float> nn_dists(k_);
-			output.is_dense = true;
-
-			if (input_->is_dense)
-			{
-				for (std::size_t idx = 0; idx < indices_->size(); ++idx)
-				{
-					if (this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists) != 0)
-					{
-						if (ComputePointAlbedo(*surface_, nn_indices, output.points[idx].intensity))
-						{
-							continue;
-						}
-					}
-					output.points[idx].normal[0] = output.points[idx].normal[1] = output.points[idx].normal[2] = output.points[idx].curvature = std::numeric_limits<float>::quiet_NaN();
-					output.is_dense = false;
-				}
-			}
-			else
-			{
-				for (std::size_t idx = 0; idx < indices_->size(); ++idx)
-				{
-					if (pcl::isFinite((*input_)[(*indices_)[idx]]))
-					{
-						if (this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists) != 0)
-						{
-							if (ComputePointAlbedo(*surface_, nn_indices, output.points[idx].intensity))
-							{
-								continue;
-							}
-						}
-					}
-					output.points[idx].normal[0] = output.points[idx].normal[1] = output.points[idx].normal[2] = output.points[idx].curvature = std::numeric_limits<float>::quiet_NaN();
-					output.is_dense = false;
-				}
-			}
-#endif
-#endif
-#endif
-		}
+		void computeFeature(PointCloudOut &output);
 
 	public:
 		EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 	};
-}
 
-#include <E57AlbedoEstimation.hpp>
+
+	class AlbedoEstimationOMP : public AlbedoEstimation
+	{
+	public:
+		typedef boost::shared_ptr<AlbedoEstimationOMP> Ptr;
+		typedef boost::shared_ptr<const AlbedoEstimationOMP> ConstPtr;
+		using AlbedoEstimation::feature_name_;
+		using AlbedoEstimation::getClassName;
+		using AlbedoEstimation::indices_;
+		using AlbedoEstimation::input_;
+		using AlbedoEstimation::surface_;
+		using AlbedoEstimation::k_;
+		using AlbedoEstimation::search_radius_;
+		using AlbedoEstimation::search_parameter_;
+		
+		typedef typename AlbedoEstimation::PointCloudOut PointCloudOut;
+
+		AlbedoEstimationOMP(unsigned int nr_threads = 0)
+		{
+			feature_name_ = "AlbedoEstimationOMP";
+
+			SetNumberOfThreads(nr_threads);
+		}
+
+		void SetNumberOfThreads(unsigned int nr_threads = 0);
+
+	protected:
+		unsigned int threads_;
+
+	private:
+		void computeFeature(PointCloudOut &output);
+	};
+}

@@ -2,14 +2,13 @@
 
 #include <vector>
 
-#include "Common.h"
-
-#include "PointType.h"
-
 #include <pcl/point_cloud.h>
 #include <pcl/outofcore/outofcore.h>
 
 #include "nlohmann/json.hpp"
+
+#include "Common.h"
+#include "PointType.h"
 
 //
 namespace e57

@@ -2,14 +2,14 @@
 #include <iomanip>
 #include <string>
 
-#include "E57Utils.h"
-#include "E57Converter.h"
-#include "Utils.h"
-
 #include <pcl/console/print.h>
 #include <pcl/console/parse.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/io/ply_io.h>
+
+#include "E57Utils.h"
+#include "E57Converter.h"
+#include "Utils.h"
 
 //
 void Start(int argc, char **argv)

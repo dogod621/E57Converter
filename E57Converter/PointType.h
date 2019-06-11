@@ -1,7 +1,5 @@
 #pragma once
 
-#define PCL_NO_PRECOMPILE
-
 #include <pcl/point_types.h>
 
 #ifdef POINT_E57_WITH_RGB
