@@ -7,7 +7,6 @@
 
 #include <pcl/common/common.h>
 #include <pcl/common/io.h>
-#include <pcl/common/transforms.h>
 #include <pcl/filters/filter.h>
 #include <pcl/filters/crop_box.h>
 #include <pcl/filters/voxel_grid.h>
@@ -509,7 +508,7 @@ namespace e57
 			return 0;
 
 		std::stringstream ss;
-		ss << "[e57::ExportToPCD_Query] Start - query" << queryID << ".\n";
+		ss << "[e57::ExportToPCD_Query] Start - query" << queryID << "/" << querys->size() << ".\n";
 		PCL_INFO(ss.str().c_str());
 
 		//
@@ -527,7 +526,7 @@ namespace e57
 		return 0;
 	}
 
-	int ExportToPCD_Process(const std::vector<OCTQuery>* querys, const int64_t queryID, std::vector<pcl::PointCloud<PointE57>::Ptr>* rawE57CloudBuffer, bool p, pcl::PointCloud<PointPCD>::Ptr* outPointCloud)
+	int ExportToPCD_Process(const std::vector<OCTQuery>* querys, const int64_t queryID, std::vector<pcl::PointCloud<PointE57>::Ptr>* rawE57CloudBuffer, bool p, const std::vector<ScanInfo>* scanInfo, pcl::PointCloud<PointPCD>::Ptr* outPointCloud)
 	{
 		if (queryID >= querys->size())
 			return 0;
@@ -537,7 +536,7 @@ namespace e57
 			return 2;
 
 		std::stringstream ss;
-		ss << "[e57::ExportToPCD_Process] Start - query" << queryID << ".\n";
+		ss << "[e57::ExportToPCD_Process] Start - query" << queryID << "/" << querys->size() << ".\n";
 		PCL_INFO(ss.str().c_str());
 
 		//
@@ -651,7 +650,7 @@ namespace e57
 			PCL_INFO("[e57::ExportToPCD_Process] Estimat Albedo.\n");
 
 			pcl::search::KdTree<PointE57>::Ptr tree(new pcl::search::KdTree<PointE57>());
-			AlbedoEstimationOMP ae;
+			AlbedoEstimationOMP ae(*scanInfo);
 			ae.setSearchMethod(tree);
 			ae.setRadiusSearch((*querys)[queryID].searchRadius);
 			ae.setSearchSurface((*rawE57CloudBuffer)[p]);
@@ -714,7 +713,7 @@ namespace e57
 
 				//
 				std::future<int> query = std::async(ExportToPCD_Query, &oct, &querys, queryID+1, &rawE57CloudBuffer, !p);
-				std::future<int> process = std::async(ExportToPCD_Process, &querys, queryID, &rawE57CloudBuffer, p, &outPointCloud);
+				std::future<int> process = std::async(ExportToPCD_Process, &querys, queryID, &rawE57CloudBuffer, p, &scanInfo,  &outPointCloud);
 				int rQuery = query.get();
 				int rProcess = process.get();
 				if (rQuery != 0) throw pcl::PCLException("ExportToPCD_Query failed - " + std::to_string(rQuery));

@@ -2,31 +2,50 @@
 
 namespace e57
 {
-	inline bool AlbedoEstimation::ComputePointAlbedo(const pcl::PointCloud<PointE57> &cloud, const std::vector<int> &indices, float& albedo)
+	inline bool AlbedoEstimation::ComputePointAlbedo(const pcl::PointCloud<PointE57>& cloud, const std::vector<int> &indices, PointPCD& point)
 	{
 #ifdef POINT_E57_WITH_LABEL
 #ifdef POINT_E57_WITH_INTENSITY
 #ifdef POINT_PCD_WITH_INTENSITY
-		/*std::vector<Eigen::Vector3d> viewVector;
-
-		for (std::size_t idx = 0; idx < indices->size(); ++idx)
+		point.intensity = 0.0f;
+		float radius = search_radius_;
+		float sumWeight = 0.0f;
+		float cutFalloff = std::numeric_limits<float>::epsilon() * 100.0f;
+		for (std::size_t idx = 0; idx < indices.size(); ++idx)
 		{
+			const PointE57& nPoint = cloud[idx];
+			const ScanInfo& nScanInfo = scanInfo[nPoint.label];
+			switch (nScanInfo.scanner)
+			{
+				case Scanner::BLK360:
+				{
+					Eigen::Vector3f measureVec = nScanInfo.position_float - nPoint.position_vector3f;
+					float nDistance = measureVec.norm();
+					float nDotNL = std::abs(point.normal_vector3f.dot(measureVec / nDistance));
+					
+					// Ref - BLK 360 Spec - laser wavelength & Beam divergence : https://lasers.leica-geosystems.com/global/sites/lasers.leica-geosystems.com.global/files/leica_media/product_documents/blk/853811_leica_blk360_um_v2.0.0_en.pdf
+					// Ref - Gaussian beam : https://en.wikipedia.org/wiki/Gaussian_beam
+					// Ref - Beam divergence to Beam waist(w0) : http://www2.nsysu.edu.tw/optics/laser/angle.htm
+					float temp = nDistance / 26.2854504782;
+					float nGaussianBeamFalloff = 1.0f / (1 + temp * temp);
+					
+					float nFalloff = nDotNL * nGaussianBeamFalloff;
+					if (nFalloff > cutFalloff)
+					{
+						float weight = std::powf((radius - (point.position_vector3f - nPoint.position_vector3f).norm()) / radius, distInterParm) * std::powf(nDotNL, frontInterParm);
+						point.intensity += nPoint.intensity * weight / nFalloff;
+						sumWeight += weight;
+					}
+				}
+				break;
 
+				default:
+					PCL_WARN("[e57::%s::ComputePointAlbedo] Scanner type is not support, ignore AlbedoEstimation.\n", "AlbedoEstimation");
+					break;
+			}
+			
 		}
-
-		return true;
-
-		switch (scanner)
-		{
-		case Scanner::BLK360:
-		{
-
-		}
-		break;
-
-		default:
-			PCL_WARN("[e57::%s::ComputePointAlbedo] Scanner type is not support, ignore AlbedoEstimation.\n", "AlbedoEstimation");
-		}*/
+		point.intensity /= sumWeight;
 #endif
 #endif
 #endif
@@ -48,7 +67,7 @@ namespace e57
 			{
 				if (this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists) != 0)
 				{
-					if (ComputePointAlbedo(*surface_, nn_indices, output.points[idx].intensity))
+					if (ComputePointAlbedo(*surface_, nn_indices, output.points[idx]))
 					{
 						continue;
 					}
@@ -65,7 +84,7 @@ namespace e57
 				{
 					if (this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists) != 0)
 					{
-						if (ComputePointAlbedo(*surface_, nn_indices, output.points[idx].intensity))
+						if (ComputePointAlbedo(*surface_, nn_indices, output.points[idx]))
 						{
 							continue;
 						}
@@ -110,7 +129,7 @@ namespace e57
 			{
 				if (this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists) != 0)
 				{
-					if (ComputePointAlbedo(*surface_, nn_indices, output.points[idx].intensity))
+					if (ComputePointAlbedo(*surface_, nn_indices, output.points[idx]))
 					{
 						continue;
 					}
@@ -130,7 +149,7 @@ namespace e57
 				{
 					if (this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists) != 0)
 					{
-						if (ComputePointAlbedo(*surface_, nn_indices, output.points[idx].intensity))
+						if (ComputePointAlbedo(*surface_, nn_indices, output.points[idx]))
 						{
 							continue;
 						}

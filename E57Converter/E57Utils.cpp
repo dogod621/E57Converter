@@ -205,6 +205,9 @@ namespace e57
 		scanInfo.orientation.w() = *it;
 		++it;
 
+		scanInfo.position_float = Eigen::Vector3f(scanInfo.position.x(), scanInfo.position.y(), scanInfo.position.z());
+		scanInfo.orientation_float = Eigen::Quaternionf(scanInfo.orientation.w(), scanInfo.orientation.x(), scanInfo.orientation.y(), scanInfo.orientation.z());
+
 		scanInfo.hasPointXYZ = j["hasPointXYZ"];
 		scanInfo.hasPointRGB = j["hasPointRGB"];
 		scanInfo.hasPointI = j["hasPointI"];
@@ -234,6 +237,8 @@ namespace e57
 					e57::FloatNode(scanPoseTranslation.get("y")).value(),
 					e57::FloatNode(scanPoseTranslation.get("z")).value());
 
+				position_float = Eigen::Vector3f(position.x(), position.y(), position.z());
+
 				transform.block(0, 3, 3, 1) = position;
 			}
 			else
@@ -248,6 +253,8 @@ namespace e57
 					e57::FloatNode(scanPoseRotation.get("x")).value(),
 					e57::FloatNode(scanPoseRotation.get("y")).value(),
 					e57::FloatNode(scanPoseRotation.get("z")).value());
+
+				orientation_float = Eigen::Quaternionf(orientation.w(), orientation.x(), orientation.y(), orientation.z());
 
 				transform.block(0, 0, 3, 3) = orientation.toRotationMatrix();
 			}

@@ -43,6 +43,8 @@ namespace e57
 		Eigen::Matrix4d transform;
 		Eigen::Quaterniond orientation; // cache from transform
 		Eigen::Vector3d position; // cache from transform
+		Eigen::Quaternionf orientation_float; // cache from transform
+		Eigen::Vector3f position_float; // cache from transform
 		bool hasPointXYZ;
 		bool hasPointRGB;
 		bool hasPointI;
@@ -56,7 +58,7 @@ namespace e57
 			bool hasPointXYZ = false, bool hasPointRGB = false, bool hasPointI = false,
 			std::size_t ID = 0, std::size_t numPoints = 0, std::size_t numValidPoints = 0)
 			: scanner(scanner),  coodSys(coodSys), raeMode(raeMode),
-			transform(transform), orientation(Eigen::Quaterniond(0.0, 0.0, 0.0, 0.0)), position(Eigen::Vector3d(0.0, 0.0, 0.0)),
+			transform(transform), orientation(Eigen::Quaterniond(0.0, 0.0, 0.0, 0.0)), position(Eigen::Vector3d(0.0, 0.0, 0.0)), orientation_float(Eigen::Quaternionf(0.0f, 0.0f, 0.0f, 0.0f)), position_float(Eigen::Vector3f(0.0f, 0.0f, 0.0f)),
 			hasPointXYZ(hasPointXYZ), hasPointRGB(hasPointRGB), hasPointI(hasPointI),
 			ID(ID), numPoints(numPoints), numValidPoints(numValidPoints) {}
 

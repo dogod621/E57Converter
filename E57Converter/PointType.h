@@ -1,6 +1,7 @@
 #pragma once
 
 #include <pcl/point_types.h>
+#include <pcl/common/transforms.h>
 
 #ifdef POINT_E57_WITH_RGB
 #define E57_CAN_CONTAIN_RGB true
@@ -54,7 +55,19 @@
 #define ADD_LABEL union { uint32_t label; int32_t hasLabel; };
 
 #define ADD_NORMAL_RGB_INTENSITY_LABEL \
-	PCL_ADD_NORMAL4D; \
+	union EIGEN_ALIGN16 \
+	{ \
+		float data_n[4]; \
+		float normal[3]; \
+		Eigen::Vector3f normal_vector3f; \
+		struct \
+		{ \
+			float normal_x; \
+			float normal_y; \
+			float normal_z; \
+		}; \
+	}; \
+	PCL_ADD_EIGEN_MAPS_NORMAL4D; \
 	union EIGEN_ALIGN16 \
 	{ \
 		struct \
@@ -85,7 +98,19 @@
 
 struct EIGEN_ALIGN16 _PointE57
 {
-	PCL_ADD_POINT4D;
+	union EIGEN_ALIGN16 \
+	{ \
+		float data[4]; \
+		Eigen::Vector3f position_vector3f; \
+		struct \
+		{ \
+			\
+				float x; \
+				float y; \
+				float z; \
+		}; \
+	}; \
+	PCL_ADD_EIGEN_MAPS_POINT4D; \
 
 #ifdef POINT_E57_WITH_HDR
 	union EIGEN_ALIGN16 { float data_hdr[4]; struct { float hdr_r; float hdr_g; float hdr_b; float hdr_a; }; };
@@ -120,7 +145,19 @@ struct EIGEN_ALIGN16 _PointE57
 
 struct EIGEN_ALIGN16 _PointPCD
 {
-	PCL_ADD_POINT4D;
+	union EIGEN_ALIGN16 \
+	{ \
+		float data[4]; \
+		Eigen::Vector3f position_vector3f; \
+		struct \
+		{ \
+			\
+				float x; \
+				float y; \
+				float z; \
+		}; \
+	}; \
+	PCL_ADD_EIGEN_MAPS_POINT4D; \
 
 #ifdef POINT_PCD_WITH_NORMAL
 	ADD_NORMAL_RGB_INTENSITY_LABEL;
