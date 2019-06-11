@@ -1,6 +1,6 @@
 #pragma once
 
-#include <boost/filesystem.hpp>
+#include "Common.h"
 
 //
 enum FileType : unsigned int

@@ -7,9 +7,9 @@
 #include "nlohmann/json.hpp"
 #include "half.hpp"
 
-namespace BLK360
+namespace e57
 {
-	HDRIScan::HDRIScan(const unsigned int width, const unsigned int height, const float fovy, const Eigen::Matrix4d& worldToScan, const boost::filesystem::path& fileName, const std::string& format)
+	BLK360HDRIScan::BLK360HDRIScan(const unsigned int width, const unsigned int height, const float fovy, const Eigen::Matrix4d& worldToScan, const boost::filesystem::path& fileName, const std::string& format)
 			: fovy(fovy), worldToScan(worldToScan)
 	{
 		if ((width * height) > 0)
@@ -45,7 +45,7 @@ namespace BLK360
 		}
 	}
 
-	HDRI::HDRI(const boost::filesystem::path& filePath)
+	BLK360HDRI::BLK360HDRI(const boost::filesystem::path& filePath)
 	{
 		try
 		{
@@ -57,8 +57,8 @@ namespace BLK360
 				scans.resize(j.size());
 				{
 					std::stringstream ss;
-					ss << "[BLK360::%s::HDRI] number of HDRI scans - " << j.size() << ".\n";
-					PCL_INFO(ss.str().c_str(), "HDRI");
+					ss << "[e57::%s::BLK360HDRI] number of HDRI scans - " << j.size() << ".\n";
+					PCL_INFO(ss.str().c_str(), "BLK360HDRI");
 				}
 
 				for (int i = 0; i < j.size(); ++i)
@@ -74,13 +74,13 @@ namespace BLK360
 					worldToScan = worldToScan.inverse();
 					{
 						std::stringstream ss;
-						ss << "[BLK360::%s::HDRI] scans" << i << " - width: " << width << " - height: " << height << " - format: " << format << " - calibration: " << worldToScan;
-						PCL_INFO(ss.str().c_str(), "HDRI");
+						ss << "[e57::%s::BLK360HDRI] scans" << i << " - width: " << width << " - height: " << height << " - format: " << format << " - calibration: " << worldToScan;
+						PCL_INFO(ss.str().c_str(), "BLK360HDRI");
 					}
 
 					float fonvy = 53.333333333; // Just get from trying, the original spec is 60, but that is not sutable. 
 					std::string url = j[i]["sourceURI"];
-					scans[i] = HDRIScan(width, height, fonvy, worldToScan, (filePath / boost::filesystem::path(url).stem()), format);
+					scans[i] = BLK360HDRIScan(width, height, fonvy, worldToScan, (filePath / boost::filesystem::path(url).stem()), format);
 
 					//
 					cv::Mat ldr;
@@ -95,12 +95,12 @@ namespace BLK360
 		catch (std::exception& ex)
 		{
 			std::stringstream ss;
-			ss << "[BLK360::%s::HDRI] Got an std::exception, what=" << ex.what() << ".\n";
-			PCL_INFO(ss.str().c_str(), "HDRI");
+			ss << "[e57::%s::BLK360HDRI] Got an std::exception, what=" << ex.what() << ".\n";
+			PCL_INFO(ss.str().c_str(), "BLK360HDRI");
 		}
 		catch (...)
 		{
-			PCL_INFO("[BLK360::%s::HDRI] Got an unknown exception.\n", "HDRI");
+			PCL_INFO("[e57::%s::BLK360HDRI] Got an unknown exception.\n", "BLK360HDRI");
 		}
 	}
 }
