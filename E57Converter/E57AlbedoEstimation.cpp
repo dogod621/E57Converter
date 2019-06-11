@@ -11,17 +11,20 @@ namespace e57
 		float radius = search_radius_;
 		float sumWeight = 0.0f;
 		float cutFalloff = std::numeric_limits<float>::epsilon() * 100.0f;
+		Eigen::Vector3f pointPosition(point.x, point.y, point.z);
+		Eigen::Vector3f pointNormal(point.normal_x, point.normal_y, point.normal_z);
 		for (std::size_t idx = 0; idx < indices.size(); ++idx)
 		{
 			const PointE57& nPoint = cloud[idx];
+			Eigen::Vector3f nPointPosition(nPoint.x, nPoint.y, nPoint.z);
 			const ScanInfo& nScanInfo = scanInfo[nPoint.label];
 			switch (nScanInfo.scanner)
 			{
 				case Scanner::BLK360:
 				{
-					Eigen::Vector3f measureVec = nScanInfo.position_float - nPoint.position_vector3f;
+					Eigen::Vector3f measureVec = nScanInfo.position_float - nPointPosition;
 					float nDistance = measureVec.norm();
-					float nDotNL = std::abs(point.normal_vector3f.dot(measureVec / nDistance));
+					float nDotNL = std::abs(pointNormal.dot(measureVec / nDistance));
 					
 					// Ref - BLK 360 Spec - laser wavelength & Beam divergence : https://lasers.leica-geosystems.com/global/sites/lasers.leica-geosystems.com.global/files/leica_media/product_documents/blk/853811_leica_blk360_um_v2.0.0_en.pdf
 					// Ref - Gaussian beam : https://en.wikipedia.org/wiki/Gaussian_beam
@@ -32,7 +35,7 @@ namespace e57
 					float nFalloff = nDotNL * nGaussianBeamFalloff;
 					if (nFalloff > cutFalloff)
 					{
-						float weight = std::powf((radius - (point.position_vector3f - nPoint.position_vector3f).norm()) / radius, distInterParm) * std::powf(nDotNL, frontInterParm);
+						float weight = std::powf((radius - (pointPosition - nPointPosition).norm()) / radius, distInterParm) * std::powf(nDotNL, frontInterParm);
 						point.intensity += nPoint.intensity * weight / nFalloff;
 						sumWeight += weight;
 					}
