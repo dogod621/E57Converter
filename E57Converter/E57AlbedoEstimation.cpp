@@ -2,7 +2,7 @@
 
 namespace e57
 {
-	inline bool AlbedoEstimation::ComputePointAlbedo(const pcl::PointCloud<PointE57>& cloud, const pcl::PointCloud<pcl::Normal>& cloudNormal, const std::vector<int> &indices, PointPCD& point)
+	inline bool AlbedoEstimation::ComputePointAlbedo(const pcl::PointCloud<PointE57>& cloud, const pcl::PointCloud<pcl::Normal>& cloudNormal, const std::size_t k, const std::vector<int>& indices, const std::vector<float>& distance, PointPCD& point)
 	{
 #ifdef POINT_E57_WITH_LABEL
 #ifdef POINT_E57_WITH_INTENSITY
@@ -11,18 +11,20 @@ namespace e57
 		float radius = search_radius_;
 		float sumWeight = 0.0f;
 		float cutFalloff = std::numeric_limits<float>::epsilon() * 100.0f;
-		Eigen::Vector3f pointPosition(point.x, point.y, point.z);
 		Eigen::Vector3f pointNormal(point.normal_x, point.normal_y, point.normal_z);
-		for (std::size_t idx = 0; idx < indices.size(); ++idx)
+		for (std::size_t idx = 0; idx < k; ++idx)
 		{
-			const Eigen::Vector3f scanNormal(cloudNormal[idx].normal_x, cloudNormal[idx].normal_y, cloudNormal[idx].normal_z);
+			int px = indices[idx];
+			float d = distance[idx];
+
+			const Eigen::Vector3f scanNormal(cloudNormal[px].normal_x, cloudNormal[px].normal_y, cloudNormal[px].normal_z);
 			if (std::abs(scanNormal.norm() - 1.0f) > 0.05f)
 			{
 				PCL_WARN("[e57::%s::ComputePointAlbedo] Search point normal is not valid, ignore.\n", "AlbedoEstimation");
 			}
 			else
 			{
-				const PointE57& scanPoint = cloud[idx];
+				const PointE57& scanPoint = cloud[px];
 				Eigen::Vector3f scanPosition(scanPoint.x, scanPoint.y, scanPoint.z);
 				const ScanInfo& scanScanInfo = scanInfo[scanPoint.label];
 				switch (scanScanInfo.scanner)
@@ -40,10 +42,12 @@ namespace e57
 					float temp = scanDistance / 26.2854504782;
 					float nGaussianBeamFalloff = 1.0f / (1 + temp * temp);
 
-					float nFalloff = scanDotNL * nGaussianBeamFalloff;
+					float nFalloff = scanDotNL * nGaussianBeamFalloff; // DEBUG
+					//float nFalloff =  nGaussianBeamFalloff; // DEBUG
 					if (nFalloff > cutFalloff)
 					{
-						float weight = std::powf(std::abs(radius - (pointPosition - scanPosition).norm()) / radius, distInterParm) * std::powf(scanDotNN, angleInterParm)* std::powf(scanDotNL, frontInterParm);
+						float weight = std::powf(std::abs(radius - d) / radius, distInterParm) * std::powf(scanDotNN, angleInterParm)* std::powf(scanDotNL, frontInterParm);// DEBUG
+						//float weight = std::powf(std::abs(radius - d) / radius, distInterParm) * std::powf(scanDotNN, angleInterParm); // DEBUG
 						point.intensity += weight * (scanPoint.intensity / nFalloff);
 						sumWeight += weight;
 					}
@@ -97,21 +101,15 @@ namespace e57
 				}
 				else
 				{
-					if (this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists) != 0)
+					if (ComputePointAlbedo(*surface_, *searchSurfaceNormal, 
+						this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists),
+						nn_indices, nn_dists, point))
 					{
-						if (ComputePointAlbedo(*surface_, *searchSurfaceNormal, nn_indices, point))
-						{
-							continue;
-						}
-						else
-						{
-							PCL_WARN("[e57::%s::computeFeature] ComputePointAlbedo failed.\n", "AlbedoEstimation");
-							point.intensity = 0.0f;
-						}
+						continue;
 					}
 					else
 					{
-						PCL_WARN("[e57::%s::computeFeature] No neighbour point is found!!?.\n", "AlbedoEstimation");
+						PCL_WARN("[e57::%s::computeFeature] ComputePointAlbedo failed.\n", "AlbedoEstimation");
 						point.intensity = 0.0f;
 					}
 				}
@@ -131,21 +129,15 @@ namespace e57
 					}
 					else
 					{
-						if (this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists) != 0)
+						if (ComputePointAlbedo(*surface_, *searchSurfaceNormal,
+							this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists),
+							nn_indices, nn_dists, point))
 						{
-							if (ComputePointAlbedo(*surface_, *searchSurfaceNormal, nn_indices, point))
-							{
-								continue;
-							}
-							else
-							{
-								PCL_WARN("[e57::%s::computeFeature] ComputePointAlbedo failed.\n", "AlbedoEstimation");
-								point.intensity = 0.0f;
-							}
+							continue;
 						}
 						else
 						{
-							PCL_WARN("[e57::%s::computeFeature] No neighbour point is found!!?.\n", "AlbedoEstimation");
+							PCL_WARN("[e57::%s::computeFeature] ComputePointAlbedo failed.\n", "AlbedoEstimation");
 							point.intensity = 0.0f;
 						}
 					}
@@ -197,21 +189,15 @@ namespace e57
 				}
 				else
 				{
-					if (this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists) != 0)
+					if (ComputePointAlbedo(*surface_, *searchSurfaceNormal,
+						this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists),
+						nn_indices, nn_dists, point))
 					{
-						if (ComputePointAlbedo(*surface_, *searchSurfaceNormal, nn_indices, point))
-						{
-							continue;
-						}
-						else
-						{
-							PCL_WARN("[e57::%s::computeFeature] ComputePointAlbedo failed.\n", "AlbedoEstimation");
-							point.intensity = 0.0f;
-						}
+						continue;
 					}
 					else
 					{
-						PCL_WARN("[e57::%s::computeFeature] No neighbour point is found!!?.\n", "AlbedoEstimation");
+						PCL_WARN("[e57::%s::computeFeature] ComputePointAlbedo failed.\n", "AlbedoEstimation");
 						point.intensity = 0.0f;
 					}
 				}
@@ -234,21 +220,15 @@ namespace e57
 					}
 					else
 					{
-						if (this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists) != 0)
+						if (ComputePointAlbedo(*surface_, *searchSurfaceNormal,
+							this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists),
+							nn_indices, nn_dists, point))
 						{
-							if (ComputePointAlbedo(*surface_, *searchSurfaceNormal, nn_indices, point))
-							{
-								continue;
-							}
-							else
-							{
-								PCL_WARN("[e57::%s::computeFeature] ComputePointAlbedo failed.\n", "AlbedoEstimation");
-								point.intensity = 0.0f;
-							}
+							continue;
 						}
 						else
 						{
-							PCL_WARN("[e57::%s::computeFeature] No neighbour point is found!!?.\n", "AlbedoEstimation");
+							PCL_WARN("[e57::%s::computeFeature] ComputePointAlbedo failed.\n", "AlbedoEstimation");
 							point.intensity = 0.0f;
 						}
 					}
