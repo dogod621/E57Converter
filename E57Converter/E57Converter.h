@@ -15,14 +15,16 @@ namespace e57
 {
 	class Converter
 	{
-	protected:
+	public:
 		using OCT = pcl::outofcore::OutofcoreOctreeBase<pcl::outofcore::OutofcoreOctreeDiskContainer<PointE57>, PointE57>;
+
+	protected:
 		OCT::Ptr oct;
 		boost::filesystem::path octPath;
 		std::vector<ScanInfo> scanInfo;
 
 		void LoadScanInfo(const boost::filesystem::path& octPath);
-		void DumpScanInfo(const boost::filesystem::path& octPath);
+		void DumpScanInfo(const boost::filesystem::path& octPath);		
 
 	public:
 		// This constructor will create a new OCT (need input a not exist folder)

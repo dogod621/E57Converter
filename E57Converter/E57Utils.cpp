@@ -253,10 +253,6 @@ namespace e57
 			}
 			else
 				PCL_WARN("[e57::%s::Load] Scan didnot define pose rotation.\n", "Scan");
-
-			std::stringstream ss;
-			ss << "[e57::%s::Load] Scan transform - " << transform << ".\n";
-			PCL_INFO(ss.str().c_str(), "Scan");
 		}
 		else
 			PCL_WARN("[e57::%s::Load] Scan didnot define pose.\n", "Scan");
@@ -352,7 +348,7 @@ namespace e57
 			PCL_WARN("[e57::%s::Load] Scan didnot define points.\n", "Scan");
 	}
 
-	void Scan::ToPointCloud(pcl::PointCloud<PointE57>& scanCloud, const uint8_t minRGB)
+	void Scan::ExtractValidPointCloud(pcl::PointCloud<PointE57>& scanCloud, const uint8_t minRGB)
 	{
 		if ((hasPointXYZ || hasPointRGB || hasPointI))
 		{
