@@ -35,7 +35,7 @@ namespace e57
 					float nFalloff = nDotNL * nGaussianBeamFalloff;
 					if (nFalloff > cutFalloff)
 					{
-						float weight = std::powf((radius - (pointPosition - nPointPosition).norm()) / radius, distInterParm) * std::powf(nDotNL, frontInterParm);
+						float weight = std::powf(std::abs(radius - (pointPosition - nPointPosition).norm()) / radius, distInterParm) * std::powf(nDotNL, frontInterParm);
 						point.intensity += nPoint.intensity * weight / nFalloff;
 						sumWeight += weight;
 					}
@@ -48,7 +48,10 @@ namespace e57
 			}
 			
 		}
-		point.intensity /= sumWeight;
+		if (sumWeight > 0.0f)
+			point.intensity /= sumWeight;
+		else
+			point.intensity = 0.0f;
 #endif
 #endif
 #endif

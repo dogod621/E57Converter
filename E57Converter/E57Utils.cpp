@@ -166,6 +166,8 @@ namespace e57
 		j["numPoints"] = numPoints;
 		j["numValidPoints"] = numValidPoints;
 
+		j["ID"] = ID;
+
 		return j;
 	}
 
@@ -214,6 +216,8 @@ namespace e57
 
 		scanInfo.numPoints = j["numPoints"];
 		scanInfo.numValidPoints = j["numValidPoints"];
+
+		scanInfo.ID = j["ID"];
 
 		return scanInfo;
 	}

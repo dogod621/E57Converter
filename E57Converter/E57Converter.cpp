@@ -29,6 +29,8 @@
 
 namespace e57
 {
+	bool ScanInfoDirCompare(const ScanInfo& i, const ScanInfo& j) { return (i.ID < j.ID); }
+
 	void Converter::LoadScanInfo(const boost::filesystem::path& octPath)
 	{
 		nlohmann::json scanInfoJson;
@@ -40,6 +42,7 @@ namespace e57
 
 		for (nlohmann::json::const_iterator it = scanInfoJson.begin(); it != scanInfoJson.end(); ++it)
 			scanInfo.push_back(ScanInfo::LoadFromJson(*it));
+		std::sort(scanInfo.begin(), scanInfo.end(), ScanInfoDirCompare);
 	}
 
 	void Converter::DumpScanInfo(const boost::filesystem::path& octPath)
@@ -125,7 +128,6 @@ namespace e57
 		(*oct)->addPointCloud(scanCloud);
 
 		//
-		(*scanBuffer)[p] = nullptr;
 		PCL_INFO("[e57::LoadE57_MergeScan] End.\n");
 		return 0;
 	}
@@ -659,8 +661,6 @@ namespace e57
 		}
 
 		//
-		(*rawE57CloudBuffer)[p] = nullptr;
-		
 		PCL_INFO("[e57::ExportToPCD_Process] End. \n");
 		return 0;
 	}
