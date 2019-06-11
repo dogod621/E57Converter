@@ -347,7 +347,7 @@ namespace e57
 					pcl::PCLImage image;
 					pcl::io::PointCloudImageExtractorFromIntensityField<PointPCD> pcie;
 					pcie.setPaintNaNsWithBlack(true);
-					pcie.setScalingMethod(pcie.SCALING_FULL_RANGE);
+					pcie.setScalingMethod(pcie.SCALING_NO);
 					if (!pcie.extract(*scanImage, image))
 						throw pcl::PCLException("Failed to extract an image from Intensity field .");
 					pcl::io::savePNGFile(filePath, image);
@@ -574,6 +574,22 @@ namespace e57
 			e57Cloud = e57Cloud_OLR;
 		}
 
+		// Crop Box
+		pcl::PointCloud<PointE57>::Ptr e57Cloud_CB(new pcl::PointCloud<PointE57>);
+		{
+			PCL_INFO("[e57::ExportToPCD_Process] Crop Box.\n");
+
+			pcl::CropBox<PointE57> cb;
+			cb.setMin(Eigen::Vector4f((*querys)[queryID].minBB.x(), (*querys)[queryID].minBB.y(), (*querys)[queryID].minBB.z(), 1.0));
+			cb.setMax(Eigen::Vector4f((*querys)[queryID].maxBB.x(), (*querys)[queryID].maxBB.y(), (*querys)[queryID].maxBB.z(), 1.0));
+			cb.setInputCloud(e57Cloud);
+			cb.filter(*e57Cloud_CB);
+
+			std::stringstream ss;
+			ss << "[e57::ExportToPCD_Process] Crop Box - inSize, outSize: " << e57Cloud->size() << ", " << e57Cloud_CB->size() << ".\n";
+			PCL_INFO(ss.str().c_str());
+		}
+
 		// Estimat Surface
 		if ((*querys)[queryID].polynomialOrder > 0)
 		{
@@ -615,22 +631,6 @@ namespace e57
 		{
 			PCL_INFO("[e57::ExportToPCD_Process] Estimat Normal.\n");
 
-			// Crop Box
-			pcl::PointCloud<PointE57>::Ptr e57Cloud_CB(new pcl::PointCloud<PointE57>);
-			{
-				PCL_INFO("[e57::ExportToPCD_Process] Estimat Normal - Crop Box.\n");
-
-				pcl::CropBox<PointE57> cb;
-				cb.setMin(Eigen::Vector4f((*querys)[queryID].minBB.x(), (*querys)[queryID].minBB.y(), (*querys)[queryID].minBB.z(), 1.0));
-				cb.setMax(Eigen::Vector4f((*querys)[queryID].maxBB.x(), (*querys)[queryID].maxBB.y(), (*querys)[queryID].maxBB.z(), 1.0));
-				cb.setInputCloud(e57Cloud);
-				cb.filter(*e57Cloud_CB);
-
-				std::stringstream ss;
-				ss << "[e57::ExportToPCD_Process] Estimat Normal - Crop Box - inSize, outSize: " << e57Cloud->size() << ", " << e57Cloud_CB->size() << ".\n";
-				PCL_INFO(ss.str().c_str());
-			}
-
 			// Copy to pcdCloud
 			(*outPointCloud)->resize(e57Cloud_CB->size());
 			for (std::size_t pi = 0; pi < e57Cloud_CB->size(); ++pi)
@@ -644,9 +644,6 @@ namespace e57
 			ne.setSearchSurface(e57Cloud);
 			ne.setInputCloud(e57Cloud_CB);
 			ne.compute(*(*outPointCloud));
-
-			//
-			e57Cloud = e57Cloud_CB;
 		}
 
 		// Estimate albedo
@@ -654,13 +651,30 @@ namespace e57
 		{
 			PCL_INFO("[e57::ExportToPCD_Process] Estimat Albedo.\n");
 
-			pcl::search::KdTree<PointE57>::Ptr tree(new pcl::search::KdTree<PointE57>());
-			AlbedoEstimationOMP ae(*scanInfo);
-			ae.setSearchMethod(tree);
-			ae.setRadiusSearch((*querys)[queryID].searchRadius);
-			ae.setSearchSurface((*rawE57CloudBuffer)[p]);
-			ae.setInputCloud(e57Cloud);
-			ae.compute(*(*outPointCloud));
+			//
+			PCL_INFO("[e57::ExportToPCD_Process] Estimat Albedo - Upsampling Normal.\n");
+			pcl::PointCloud<pcl::Normal>::Ptr rawE57CloudNormal(new pcl::PointCloud<pcl::Normal>());
+			{
+				rawE57CloudNormal->resize((*rawE57CloudBuffer)[p]->size());
+				pcl::search::KdTree<PointE57>::Ptr tree(new pcl::search::KdTree<PointE57>());
+				pcl::NormalEstimationOMP<PointE57, pcl::Normal> ne;
+				ne.setSearchMethod(tree);
+				ne.setRadiusSearch((*querys)[queryID].searchRadius);
+				ne.setSearchSurface(e57Cloud);
+				ne.setInputCloud((*rawE57CloudBuffer)[p]);
+				ne.compute(*rawE57CloudNormal);
+			}
+
+			PCL_INFO("[e57::ExportToPCD_Process] Estimat Albedo - Estimat Albedo.\n");
+			{
+				pcl::search::KdTree<PointE57>::Ptr tree(new pcl::search::KdTree<PointE57>());
+				AlbedoEstimationOMP ae(*scanInfo, rawE57CloudNormal);
+				ae.setSearchMethod(tree);
+				ae.setRadiusSearch((*querys)[queryID].searchRadius);
+				ae.setSearchSurface((*rawE57CloudBuffer)[p]);
+				ae.setInputCloud(e57Cloud_CB);
+				ae.compute(*(*outPointCloud));
+			}
 		}
 
 		//

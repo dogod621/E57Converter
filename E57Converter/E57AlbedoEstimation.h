@@ -28,7 +28,8 @@ namespace e57
 		typedef typename pcl::Feature<PointE57, PointPCD>::PointCloudConstPtr PointCloudConstPtr;
 
 	public:
-		AlbedoEstimation(const std::vector<ScanInfo>& scanInfo, const float distInterParm = 2.0f, const float frontInterParm = 5.0f) : scanInfo(scanInfo), distInterParm(distInterParm), frontInterParm(frontInterParm)
+		AlbedoEstimation(const std::vector<ScanInfo>& scanInfo, pcl::PointCloud<pcl::Normal>::Ptr searchSurfaceNormal, const float distInterParm = 2.0f, const float angleInterParm = 12.0f, const float frontInterParm = 5.0f) 
+			: scanInfo(scanInfo), searchSurfaceNormal(searchSurfaceNormal), distInterParm(distInterParm), angleInterParm(angleInterParm), frontInterParm(frontInterParm)
 		{
 			feature_name_ = "AlbedoEstimation";
 		};
@@ -40,14 +41,17 @@ namespace e57
 			input_ = cloud;
 		}
 
-		inline bool ComputePointAlbedo(const pcl::PointCloud<PointE57>& cloud, const std::vector<int> &indices, PointPCD& point);
+		inline bool ComputePointAlbedo(const pcl::PointCloud<PointE57>& cloud, const pcl::PointCloud<pcl::Normal>& cloudNormal, const std::vector<int> &indices, PointPCD& point);
 
 
 	protected:
 		float distInterParm;
+		float angleInterParm;
 		float frontInterParm;
 
 		std::vector<ScanInfo> scanInfo;
+
+		pcl::PointCloud<pcl::Normal>::Ptr searchSurfaceNormal;
 
 		void computeFeature(PointCloudOut &output);
 
@@ -72,7 +76,8 @@ namespace e57
 		
 		typedef typename AlbedoEstimation::PointCloudOut PointCloudOut;
 
-		AlbedoEstimationOMP(const std::vector<ScanInfo>& scanInfo, const float distInterParm = 2.0f, const float frontInterParm = 5.0f, unsigned int nr_threads = 0) : AlbedoEstimation(scanInfo, distInterParm, frontInterParm)
+		AlbedoEstimationOMP(const std::vector<ScanInfo>& scanInfo, pcl::PointCloud<pcl::Normal>::Ptr searchSurfaceNormal, const float distInterParm = 2.0f, const float angleInterParm = 12.0f, const float frontInterParm = 5.0f, unsigned int nr_threads = 0)
+			: AlbedoEstimation(scanInfo, searchSurfaceNormal, distInterParm, angleInterParm, frontInterParm)
 		{
 			feature_name_ = "AlbedoEstimationOMP";
 
