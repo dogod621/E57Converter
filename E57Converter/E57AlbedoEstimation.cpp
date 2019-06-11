@@ -43,15 +43,25 @@ namespace e57
 				break;
 
 				default:
-					PCL_WARN("[e57::%s::ComputePointAlbedo] Scanner type is not support, ignore AlbedoEstimation.\n", "AlbedoEstimation");
+					PCL_WARN("[e57::%s::ComputePointAlbedo] Scan data Scanner type is not support, ignore.\n", "AlbedoEstimation");
 					break;
 			}
 			
 		}
 		if (sumWeight > 0.0f)
+		{
 			point.intensity /= sumWeight;
+			if (point.intensity < 0)
+			{
+				PCL_WARN("[e57::%s::ComputePointAlbedo] Final intensity is negative!!?.\n", "AlbedoEstimation");
+				return false;
+			}
+		}
 		else
-			point.intensity = 0.0f;
+		{
+			PCL_WARN("[e57::%s::ComputePointAlbedo] No valid neighbor scan data found.\n", "AlbedoEstimation");
+			return false;
+		}
 #endif
 #endif
 #endif
@@ -65,39 +75,77 @@ namespace e57
 #ifdef POINT_PCD_WITH_INTENSITY
 		std::vector<int> nn_indices(k_);
 		std::vector<float> nn_dists(k_);
-		output.is_dense = true;
 
 		if (input_->is_dense)
 		{
 			for (std::size_t idx = 0; idx < indices_->size(); ++idx)
 			{
-				if (this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists) != 0)
+				PointPCD& point = output.points[idx];
+				if (Eigen::Vector3f(point.normal_x, point.normal_y, point.normal_z).norm() < 0.99)
 				{
-					if (ComputePointAlbedo(*surface_, nn_indices, output.points[idx]))
+					PCL_WARN("[e57::%s::ComputePointAlbedo] Point normal is not valid!!?.\n", "AlbedoEstimation");
+					point.intensity = 0.0f;
+				}
+				else
+				{
+					if (this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists) != 0)
 					{
-						continue;
+						if (ComputePointAlbedo(*surface_, nn_indices, point))
+						{
+							continue;
+						}
+						else
+						{
+							PCL_WARN("[e57::%s::ComputePointAlbedo] ComputePointAlbedo failed.\n", "AlbedoEstimation");
+							point.intensity = 0.0f;
+						}
+					}
+					else
+					{
+						PCL_WARN("[e57::%s::ComputePointAlbedo] No neighbour point is found!!?.\n", "AlbedoEstimation");
+						point.intensity = 0.0f;
 					}
 				}
-				output.points[idx].intensity = std::numeric_limits<float>::quiet_NaN();
-				output.is_dense = false;
 			}
 		}
 		else
 		{
 			for (std::size_t idx = 0; idx < indices_->size(); ++idx)
 			{
+				PointPCD& point = output.points[idx];
 				if (pcl::isFinite((*input_)[(*indices_)[idx]]))
 				{
-					if (this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists) != 0)
+					if (Eigen::Vector3f(point.normal_x, point.normal_y, point.normal_z).norm() < 0.99)
 					{
-						if (ComputePointAlbedo(*surface_, nn_indices, output.points[idx]))
+						PCL_WARN("[e57::%s::ComputePointAlbedo] Point normal is not valid!!?.\n", "AlbedoEstimation");
+						point.intensity = 0.0f;
+					}
+					else
+					{
+						if (this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists) != 0)
 						{
-							continue;
+							if (ComputePointAlbedo(*surface_, nn_indices, point))
+							{
+								continue;
+							}
+							else
+							{
+								PCL_WARN("[e57::%s::ComputePointAlbedo] ComputePointAlbedo failed.\n", "AlbedoEstimation");
+								point.intensity = 0.0f;
+							}
+						}
+						else
+						{
+							PCL_WARN("[e57::%s::ComputePointAlbedo] No neighbour point is found!!?.\n", "AlbedoEstimation");
+							point.intensity = 0.0f;
 						}
 					}
 				}
-				output.points[idx].intensity = std::numeric_limits<float>::quiet_NaN();
-				output.is_dense = false;
+				else
+				{
+					PCL_WARN("[e57::%s::ComputePointAlbedo] Input point contain non finite value!!?.\n", "AlbedoEstimation");
+					point.intensity = 0.0f;
+				}
 			}
 		}
 #endif
@@ -125,7 +173,6 @@ namespace e57
 		std::vector<int> nn_indices(k_);
 		std::vector<float> nn_dists(k_);
 
-		output.is_dense = true;
 		if (input_->is_dense)
 		{
 #ifdef _OPENMP
@@ -133,15 +180,32 @@ namespace e57
 #endif
 			for (int idx = 0; idx < static_cast<int> (indices_->size()); ++idx)
 			{
-				if (this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists) != 0)
+				PointPCD& point = output.points[idx];
+				if (Eigen::Vector3f(point.normal_x, point.normal_y, point.normal_z).norm() < 0.99)
 				{
-					if (ComputePointAlbedo(*surface_, nn_indices, output.points[idx]))
+					PCL_WARN("[e57::%s::ComputePointAlbedo] Point normal is not valid!!?.\n", "AlbedoEstimation");
+					point.intensity = 0.0f;
+				}
+				else
+				{
+					if (this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists) != 0)
 					{
-						continue;
+						if (ComputePointAlbedo(*surface_, nn_indices, point))
+						{
+							continue;
+						}
+						else
+						{
+							PCL_WARN("[e57::%s::ComputePointAlbedo] ComputePointAlbedo failed.\n", "AlbedoEstimation");
+							point.intensity = 0.0f;
+						}
+					}
+					else
+					{
+						PCL_WARN("[e57::%s::ComputePointAlbedo] No neighbour point is found!!?.\n", "AlbedoEstimation");
+						point.intensity = 0.0f;
 					}
 				}
-				output.points[idx].intensity = std::numeric_limits<float>::quiet_NaN();
-				output.is_dense = false;
 			}
 		}
 		else
@@ -151,18 +215,40 @@ namespace e57
 #endif
 			for (int idx = 0; idx < static_cast<int> (indices_->size()); ++idx)
 			{
+				PointPCD& point = output.points[idx];
 				if (pcl::isFinite((*input_)[(*indices_)[idx]]))
 				{
-					if (this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists) != 0)
+					if (Eigen::Vector3f(point.normal_x, point.normal_y, point.normal_z).norm() < 0.99)
 					{
-						if (ComputePointAlbedo(*surface_, nn_indices, output.points[idx]))
+						PCL_WARN("[e57::%s::ComputePointAlbedo] Point normal is not valid!!?.\n", "AlbedoEstimation");
+						point.intensity = 0.0f;
+					}
+					else
+					{
+						if (this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists) != 0)
 						{
-							continue;
+							if (ComputePointAlbedo(*surface_, nn_indices, point))
+							{
+								continue;
+							}
+							else
+							{
+								PCL_WARN("[e57::%s::ComputePointAlbedo] ComputePointAlbedo failed.\n", "AlbedoEstimation");
+								point.intensity = 0.0f;
+							}
+						}
+						else
+						{
+							PCL_WARN("[e57::%s::ComputePointAlbedo] No neighbour point is found!!?.\n", "AlbedoEstimation");
+							point.intensity = 0.0f;
 						}
 					}
 				}
-				output.points[idx].intensity = std::numeric_limits<float>::quiet_NaN();
-				output.is_dense = false;
+				else
+				{
+					PCL_WARN("[e57::%s::ComputePointAlbedo] Input point contain non finite value!!?.\n", "AlbedoEstimation");
+					point.intensity = 0.0f;
+				}
 			}
 		}
 #endif

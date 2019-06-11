@@ -644,6 +644,9 @@ namespace e57
 			ne.setSearchSurface(e57Cloud);
 			ne.setInputCloud(e57Cloud_CB);
 			ne.compute(*(*outPointCloud));
+
+			//
+			e57Cloud = e57Cloud_CB;
 		}
 
 		// Estimate albedo
