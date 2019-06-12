@@ -53,7 +53,7 @@ namespace e57
 						scannLaserInfo.incidentDirection = scanScanInfo.position - scannLaserInfo.hitPosition;
 						scannLaserInfo.hitDistance = scannLaserInfo.incidentDirection.norm();
 						scannLaserInfo.incidentDirection /= scannLaserInfo.hitDistance;
-						if (scannLaserInfo.incidentDirection.dot(scannLaserInfo.hitNormal) < 0)
+						if (scannLaserInfo.incidentDirection.dot(centerNormal) < 0)
 							scannLaserInfo.incidentDirection *= -1.0;
 						scannLaserInfo.reflectedDirection = scannLaserInfo.incidentDirection; // BLK360 
 
