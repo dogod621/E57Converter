@@ -10,6 +10,21 @@
 
 namespace e57
 {
+	struct ScannLaserInfo
+	{
+		Eigen::Vector3d incidentDirection;
+		Eigen::Vector3d reflectedDirection;
+		double intensity;
+		Eigen::Vector3d hitPosition;
+		Eigen::Vector3d hitNormal;
+		Eigen::Vector3d hitTangent;
+		double hitDistance;
+		Eigen::Vector3d centerNormal;
+		Eigen::Vector3d centerTangent;
+		double weight;
+		double beamFalloff;
+	};
+
 	class AlbedoEstimation : public pcl::Feature<PointE57, PointPCD>
 	{
 	public:
@@ -28,9 +43,9 @@ namespace e57
 		typedef typename pcl::Feature<PointE57, PointPCD>::PointCloudConstPtr PointCloudConstPtr;
 
 	public:
-		AlbedoEstimation(const std::vector<ScanInfo>& scanInfo, pcl::PointCloud<pcl::Normal>::Ptr searchSurfaceNormal, 
-			const double distInterParm = 10.0, const double angleInterParm = 16.0, const double frontInterParm = 5.0, const double cutFalloff = 0.1)
-			: scanInfo(scanInfo), searchSurfaceNormal(searchSurfaceNormal), distInterParm(distInterParm), angleInterParm(angleInterParm), frontInterParm(frontInterParm), cutFalloff(cutFalloff)
+		AlbedoEstimation(const std::vector<ScanInfo>& scanInfos, pcl::PointCloud<pcl::Normal>::Ptr searchSurfaceNormal, 
+			const LinearSolver linearSolver = LinearSolver::EIGEN_SVD, const double distInterParm = 10.0, const double angleInterParm = 20.0, const double frontInterParm = 5.0, const double cutFalloff = 0.33, const double cutGrazing = 0.86602540378)
+			: scanInfos(scanInfos), searchSurfaceNormal(searchSurfaceNormal), linearSolver(linearSolver), distInterParm(distInterParm), angleInterParm(angleInterParm), frontInterParm(frontInterParm), cutFalloff(cutFalloff), cutGrazing(cutGrazing)
 		{
 			feature_name_ = "AlbedoEstimation";
 		};
@@ -42,16 +57,20 @@ namespace e57
 			input_ = cloud;
 		}
 
-		inline bool ComputePointAlbedo(const pcl::PointCloud<PointE57>& cloud, const pcl::PointCloud<pcl::Normal>& cloudNormal, const std::size_t k, const std::vector<int>& indices, const std::vector<float>& distance, const PointE57& inPoint, PointPCD& outPoint);
+		inline bool CollectScannLaserInfo(const pcl::PointCloud<PointE57>& cloud, const pcl::PointCloud<pcl::Normal>& cloudNormal, const std::size_t k, const std::vector<int>& indices, const std::vector<float>& distance, Eigen::Vector3d& centerNormal, std::vector<ScannLaserInfo>& scannLaserInfos);
+
+		inline bool ComputePointAlbedo(const std::vector<ScannLaserInfo>& scannLaserInfos, const PointE57& centerPoint, const Eigen::Vector3d& centerNormal, PointPCD& outPoint);
 
 
 	protected:
+		LinearSolver linearSolver;
 		double distInterParm;
 		double angleInterParm;
 		double frontInterParm;
 		double cutFalloff;
+		double cutGrazing;
 
-		std::vector<ScanInfo> scanInfo;
+		std::vector<ScanInfo> scanInfos;
 
 		pcl::PointCloud<pcl::Normal>::Ptr searchSurfaceNormal;
 
@@ -78,10 +97,10 @@ namespace e57
 		
 		typedef typename AlbedoEstimation::PointCloudOut PointCloudOut;
 
-		AlbedoEstimationOMP(const std::vector<ScanInfo>& scanInfo, pcl::PointCloud<pcl::Normal>::Ptr searchSurfaceNormal, 
-			const double distInterParm = 10.0, const double angleInterParm = 16.0, const double frontInterParm = 5.0, const double cutFalloff = 0.1,
+		AlbedoEstimationOMP(const std::vector<ScanInfo>& scanInfos, pcl::PointCloud<pcl::Normal>::Ptr searchSurfaceNormal, 
+			const LinearSolver linearSolver = LinearSolver::EIGEN_SVD, const double distInterParm = 10.0, const double angleInterParm = 20.0, const double frontInterParm = 5.0, const double cutFalloff = 0.33, const double cutGrazing = 0.86602540378,
 			unsigned int nr_threads = 0)
-			: AlbedoEstimation(scanInfo, searchSurfaceNormal, distInterParm, angleInterParm, frontInterParm, cutFalloff)
+			: AlbedoEstimation(scanInfos, searchSurfaceNormal, linearSolver, distInterParm, angleInterParm, frontInterParm, cutFalloff, cutGrazing)
 		{
 			feature_name_ = "AlbedoEstimationOMP";
 

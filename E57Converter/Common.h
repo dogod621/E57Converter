@@ -3,6 +3,7 @@
 #include <string>
 #include <boost/filesystem.hpp>
 #include <pcl/common/transforms.h>
+#include <Eigen/Core>
 
 std::string ToUpper(const std::string& s);
 bool IsDir(boost::filesystem::path filePath);
@@ -14,6 +15,15 @@ enum Scanner : unsigned int
 	Scaner_UNKNOWN = 0,
 
 	BLK360 = 1,
+};
+
+enum LinearSolver : unsigned int
+{
+	LinearSolver_UNKNOWN = 0,
+
+	EIGEN_QR = 1,
+	EIGEN_SVD = 2,
+	EIGEN_NE = 3,
 };
 
 // http://www.libe57.org/bestCoordinates.html
