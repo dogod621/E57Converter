@@ -7,48 +7,45 @@ namespace e57
 #ifdef POINT_E57_WITH_LABEL
 #ifdef POINT_E57_WITH_INTENSITY
 #ifdef POINT_PCD_WITH_INTENSITY
-		outPoint.intensity = 0.0f;
-		float radius = search_radius_;
-		float sumWeight = 0.0f;
-		float cutFalloff = std::numeric_limits<float>::epsilon() * 100.0f;
-		Eigen::Vector3f pointNormal(outPoint.normal_x, outPoint.normal_y, outPoint.normal_z);
+		double radius = search_radius_;
+		double sumWeightedValue = 0.0;
+		double sumWeight = 0.0;
+		Eigen::Vector3d pointNormal(outPoint.normal_x, outPoint.normal_y, outPoint.normal_z);
 		for (std::size_t idx = 0; idx < k; ++idx)
 		{
 			int px = indices[idx];
-			float d = distance[idx];
+			double d = distance[idx];
 
-			const Eigen::Vector3f scanNormal(cloudNormal[px].normal_x, cloudNormal[px].normal_y, cloudNormal[px].normal_z);
-			if (std::abs(scanNormal.norm() - 1.0f) > 0.05f)
+			const Eigen::Vector3d scanNormal(cloudNormal[px].normal_x, cloudNormal[px].normal_y, cloudNormal[px].normal_z);
+			if (std::abs(scanNormal.norm() - 1.0) > 0.05)
 			{
 				PCL_WARN("[e57::%s::ComputePointAlbedo] Search point normal is not valid, ignore.\n", "AlbedoEstimation");
 			}
 			else
 			{
 				const PointE57& scanPoint = cloud[px];
-				Eigen::Vector3f scanPosition(scanPoint.x, scanPoint.y, scanPoint.z);
 				const ScanInfo& scanScanInfo = scanInfo[scanPoint.label];
+				Eigen::Vector3d scanPosition(scanPoint.x, scanPoint.y, scanPoint.z);
 				switch (scanScanInfo.scanner)
 				{
 				case Scanner::BLK360:
 				{
-					Eigen::Vector3f scanVector = scanScanInfo.position_float - scanPosition;
-					float scanDistance = scanVector.norm();
-					float scanDotNL = std::abs(scanNormal.dot(scanVector / scanDistance));
-					float scanDotNN = std::abs(scanNormal.dot(pointNormal));
+					Eigen::Vector3d scanVector = scanScanInfo.position - scanPosition;
+					double scanDistance = scanVector.norm();
+					scanVector /= scanDistance;
+					double scanAngle = std::abs(scanNormal.dot(pointNormal));
 
 					// Ref - BLK 360 Spec - laser wavelength & Beam divergence : https://lasers.leica-geosystems.com/global/sites/lasers.leica-geosystems.com.global/files/leica_media/product_documents/blk/853811_leica_blk360_um_v2.0.0_en.pdf
 					// Ref - Gaussian beam : https://en.wikipedia.org/wiki/Gaussian_beam
 					// Ref - Beam divergence to Beam waist(w0) : http://www2.nsysu.edu.tw/optics/laser/angle.htm
-					float temp = scanDistance / 26.2854504782;
-					float nGaussianBeamFalloff = 1.0f / (1 + temp * temp);
-
-					float nFalloff = scanDotNL * nGaussianBeamFalloff; // DEBUG
-					//float nFalloff =  nGaussianBeamFalloff; // DEBUG
-					if (nFalloff > cutFalloff)
+					double temp = scanDistance / 26.2854504782;
+					double scanGaussianBeamFalloff = 1.0f / (1 + temp * temp);
+					double scanLambertiantFalloff = std::abs(scanNormal.dot(scanVector));
+					double scanFalloff = scanLambertiantFalloff * scanGaussianBeamFalloff; // DEBUG
+					if (scanFalloff > cutFalloff)
 					{
-						float weight = std::powf(std::abs(radius - d) / radius, distInterParm) * std::powf(scanDotNN, angleInterParm)* std::powf(scanDotNL, frontInterParm);// DEBUG
-						//float weight = std::powf(std::abs(radius - d) / radius, distInterParm) * std::powf(scanDotNN, angleInterParm); // DEBUG
-						outPoint.intensity += weight * (scanPoint.intensity / nFalloff);
+						double weight = std::pow(std::abs(radius - d) / radius, distInterParm) * std::pow(scanAngle, angleInterParm)* std::pow(scanLambertiantFalloff, frontInterParm);// DEBUG
+						sumWeightedValue += weight * (((double)scanPoint.intensity) / scanFalloff);
 						sumWeight += weight;
 					}
 				}
@@ -61,14 +58,10 @@ namespace e57
 			}
 			
 		}
-		if (sumWeight > 0.0f)
+		if (sumWeight > 0.0)
 		{
-			outPoint.intensity /= sumWeight;
-			if (outPoint.intensity < 0)
-			{
-				PCL_WARN("[e57::%s::ComputePointAlbedo] Final intensity is negative!!?.\n", "AlbedoEstimation");
-				return false;
-			}
+			outPoint.intensity = sumWeightedValue / sumWeight;
+			return true;
 		}
 		else
 		{
@@ -89,6 +82,7 @@ namespace e57
 		std::vector<int> nn_indices(k_);
 		std::vector<float> nn_dists(k_);
 
+		output.is_dense = true;
 		if (input_->is_dense)
 		{
 			for (std::size_t idx = 0; idx < indices_->size(); ++idx)
@@ -98,20 +92,18 @@ namespace e57
 				if (std::abs(Eigen::Vector3f(outPoint.normal_x, outPoint.normal_y, outPoint.normal_z).norm() - 1.0f) > 0.05f)
 				{
 					PCL_WARN("[e57::%s::computeFeature] Point normal is not valid!!?.\n", "AlbedoEstimation");
-					outPoint.intensity = 0.0f;
+					outPoint.intensity = std::numeric_limits<float>::quiet_NaN();
+					output.is_dense = false;
 				}
 				else
 				{
-					if (ComputePointAlbedo(*surface_, *searchSurfaceNormal, 
+					if (!ComputePointAlbedo(*surface_, *searchSurfaceNormal, 
 						this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists),
 						nn_indices, nn_dists, inPoint, outPoint))
 					{
-						continue;
-					}
-					else
-					{
 						PCL_WARN("[e57::%s::computeFeature] ComputePointAlbedo failed.\n", "AlbedoEstimation");
-						outPoint.intensity = 0.0f;
+						outPoint.intensity = std::numeric_limits<float>::quiet_NaN();
+						output.is_dense = false;
 					}
 				}
 			}
@@ -127,27 +119,26 @@ namespace e57
 					if (std::abs(Eigen::Vector3f(outPoint.normal_x, outPoint.normal_y, outPoint.normal_z).norm() - 1.0f) > 0.05f)
 					{
 						PCL_WARN("[e57::%s::computeFeature] Point normal is not valid!!?.\n", "AlbedoEstimation");
-						outPoint.intensity = 0.0f;
+						outPoint.intensity = std::numeric_limits<float>::quiet_NaN();
+						output.is_dense = false;
 					}
 					else
 					{
-						if (ComputePointAlbedo(*surface_, *searchSurfaceNormal,
+						if (!ComputePointAlbedo(*surface_, *searchSurfaceNormal,
 							this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists),
 							nn_indices, nn_dists, inPoint, outPoint))
 						{
-							continue;
-						}
-						else
-						{
 							PCL_WARN("[e57::%s::computeFeature] ComputePointAlbedo failed.\n", "AlbedoEstimation");
-							outPoint.intensity = 0.0f;
+							outPoint.intensity = std::numeric_limits<float>::quiet_NaN();
+							output.is_dense = false;
 						}
 					}
 				}
 				else
 				{
 					PCL_WARN("[e57::%s::computeFeature] Input point contain non finite value!!?.\n", "AlbedoEstimation");
-					outPoint.intensity = 0.0f;
+					outPoint.intensity = std::numeric_limits<float>::quiet_NaN();
+					output.is_dense = false;
 				}
 			}
 		}
@@ -176,6 +167,7 @@ namespace e57
 		std::vector<int> nn_indices(k_);
 		std::vector<float> nn_dists(k_);
 
+		output.is_dense = true;
 		if (input_->is_dense)
 		{
 #ifdef _OPENMP
@@ -188,20 +180,18 @@ namespace e57
 				if (std::abs(Eigen::Vector3f(outPoint.normal_x, outPoint.normal_y, outPoint.normal_z).norm() - 1.0f) > 0.05f)
 				{
 					PCL_WARN("[e57::%s::computeFeature] Point normal is not valid!!?.\n", "AlbedoEstimation");
-					outPoint.intensity = 0.0f;
+					outPoint.intensity = std::numeric_limits<float>::quiet_NaN();
+					output.is_dense = false;
 				}
 				else
 				{
-					if (ComputePointAlbedo(*surface_, *searchSurfaceNormal, 
+					if (!ComputePointAlbedo(*surface_, *searchSurfaceNormal,
 						this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists),
 						nn_indices, nn_dists, inPoint, outPoint))
 					{
-						continue;
-					}
-					else
-					{
 						PCL_WARN("[e57::%s::computeFeature] ComputePointAlbedo failed.\n", "AlbedoEstimation");
-						outPoint.intensity = 0.0f;
+						outPoint.intensity = std::numeric_limits<float>::quiet_NaN();
+						output.is_dense = false;
 					}
 				}
 			}
@@ -220,27 +210,26 @@ namespace e57
 					if (std::abs(Eigen::Vector3f(outPoint.normal_x, outPoint.normal_y, outPoint.normal_z).norm() - 1.0f) > 0.05f)
 					{
 						PCL_WARN("[e57::%s::computeFeature] Point normal is not valid!!?.\n", "AlbedoEstimation");
-						outPoint.intensity = 0.0f;
+						outPoint.intensity = std::numeric_limits<float>::quiet_NaN();
+						output.is_dense = false;
 					}
 					else
 					{
-						if (ComputePointAlbedo(*surface_, *searchSurfaceNormal,
+						if (!ComputePointAlbedo(*surface_, *searchSurfaceNormal,
 							this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists),
 							nn_indices, nn_dists, inPoint, outPoint))
 						{
-							continue;
-						}
-						else
-						{
 							PCL_WARN("[e57::%s::computeFeature] ComputePointAlbedo failed.\n", "AlbedoEstimation");
-							outPoint.intensity = 0.0f;
+							outPoint.intensity = std::numeric_limits<float>::quiet_NaN();
+							output.is_dense = false;
 						}
 					}
 				}
 				else
 				{
 					PCL_WARN("[e57::%s::computeFeature] Input point contain non finite value!!?.\n", "AlbedoEstimation");
-					outPoint.intensity = 0.0f;
+					outPoint.intensity = std::numeric_limits<float>::quiet_NaN();
+					output.is_dense = false;
 				}
 			}
 		}

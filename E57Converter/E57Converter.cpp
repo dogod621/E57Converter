@@ -675,6 +675,28 @@ namespace e57
 				ae.setInputCloud(e57Cloud_CB);
 				ae.compute(*(*outPointCloud));
 			}
+
+			//
+			if (!(*outPointCloud)->is_dense)
+			{
+				PCL_INFO("[e57::ExportToPCD_Process] Estimat Albedo - Remove NAN.\n");
+
+				pcl::PointCloud<PointPCD>::Ptr pcdCloud_Valid(new pcl::PointCloud<PointPCD>);
+				pcdCloud_Valid->reserve((*outPointCloud)->size());
+				for (pcl::PointCloud<PointPCD>::iterator it = (*outPointCloud)->begin(); it != (*outPointCloud)->end(); ++it)
+				{
+					if (std::isfinite(it->intensity))
+					{
+						pcdCloud_Valid->push_back(*it);
+					}
+				}
+
+				std::stringstream ss;
+				ss << "[e57::ExportToPCD_Process] Estimat Albedo - Remove NAN - inSize, outSize: " << (*outPointCloud)->size() << ", " << pcdCloud_Valid->size() << ".\n";
+				PCL_INFO(ss.str().c_str());
+
+				(*outPointCloud) = pcdCloud_Valid;
+			}
 		}
 
 		//

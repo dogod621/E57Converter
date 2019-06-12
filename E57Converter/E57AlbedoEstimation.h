@@ -28,8 +28,9 @@ namespace e57
 		typedef typename pcl::Feature<PointE57, PointPCD>::PointCloudConstPtr PointCloudConstPtr;
 
 	public:
-		AlbedoEstimation(const std::vector<ScanInfo>& scanInfo, pcl::PointCloud<pcl::Normal>::Ptr searchSurfaceNormal, const float distInterParm = 2.0f, const float angleInterParm = 12.0f, const float frontInterParm = 5.0f) 
-			: scanInfo(scanInfo), searchSurfaceNormal(searchSurfaceNormal), distInterParm(distInterParm), angleInterParm(angleInterParm), frontInterParm(frontInterParm)
+		AlbedoEstimation(const std::vector<ScanInfo>& scanInfo, pcl::PointCloud<pcl::Normal>::Ptr searchSurfaceNormal, 
+			const double distInterParm = 10.0, const double angleInterParm = 16.0, const double frontInterParm = 5.0, const double cutFalloff = 0.1)
+			: scanInfo(scanInfo), searchSurfaceNormal(searchSurfaceNormal), distInterParm(distInterParm), angleInterParm(angleInterParm), frontInterParm(frontInterParm), cutFalloff(cutFalloff)
 		{
 			feature_name_ = "AlbedoEstimation";
 		};
@@ -45,9 +46,10 @@ namespace e57
 
 
 	protected:
-		float distInterParm;
-		float angleInterParm;
-		float frontInterParm;
+		double distInterParm;
+		double angleInterParm;
+		double frontInterParm;
+		double cutFalloff;
 
 		std::vector<ScanInfo> scanInfo;
 
@@ -76,8 +78,10 @@ namespace e57
 		
 		typedef typename AlbedoEstimation::PointCloudOut PointCloudOut;
 
-		AlbedoEstimationOMP(const std::vector<ScanInfo>& scanInfo, pcl::PointCloud<pcl::Normal>::Ptr searchSurfaceNormal, const float distInterParm = 2.0f, const float angleInterParm = 12.0f, const float frontInterParm = 5.0f, unsigned int nr_threads = 0)
-			: AlbedoEstimation(scanInfo, searchSurfaceNormal, distInterParm, angleInterParm, frontInterParm)
+		AlbedoEstimationOMP(const std::vector<ScanInfo>& scanInfo, pcl::PointCloud<pcl::Normal>::Ptr searchSurfaceNormal, 
+			const double distInterParm = 10.0, const double angleInterParm = 16.0, const double frontInterParm = 5.0, const double cutFalloff = 0.1,
+			unsigned int nr_threads = 0)
+			: AlbedoEstimation(scanInfo, searchSurfaceNormal, distInterParm, angleInterParm, frontInterParm, cutFalloff)
 		{
 			feature_name_ = "AlbedoEstimationOMP";
 
