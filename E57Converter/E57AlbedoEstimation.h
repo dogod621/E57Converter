@@ -18,6 +18,7 @@ namespace e57
 		Eigen::Vector3d hitPosition;
 		Eigen::Vector3d hitNormal;
 		Eigen::Vector3d hitTangent;
+		Eigen::Vector3d hitBitangent;
 		double hitDistance;
 		double weight;
 		double beamFalloff;

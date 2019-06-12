@@ -69,6 +69,8 @@ namespace e57
 							if (hitTangentNorm > 0.0)
 							{
 								scannLaserInfo.hitTangent /= hitTangentNorm;
+								scannLaserInfo.hitBitangent = scannLaserInfo.hitNormal.cross(scannLaserInfo.hitTangent);
+								scannLaserInfo.hitBitangent /= scannLaserInfo.hitBitangent.norm();
 								scannLaserInfo.weight = std::pow(std::abs(radius - d) / radius, distInterParm) * std::pow(dotNN, angleInterParm);
 								scannLaserInfo.intensity = (double)scanPoint.intensity;
 								scannLaserInfos.push_back(scannLaserInfo);
@@ -95,8 +97,8 @@ namespace e57
 		Eigen::MatrixXf A;
 		Eigen::MatrixXf B;
 
-		A = Eigen::MatrixXf(scannLaserInfos.size() * 2, 3);
-		B = Eigen::MatrixXf(scannLaserInfos.size() * 2, 1);
+		A = Eigen::MatrixXf(scannLaserInfos.size() * 3, 3);
+		B = Eigen::MatrixXf(scannLaserInfos.size() * 3, 1);
 
 		std::size_t shifter = 0;
 		for (std::vector<ScannLaserInfo>::const_iterator it = scannLaserInfos.begin(); it != scannLaserInfos.end(); ++it)
@@ -111,7 +113,12 @@ namespace e57
 			A(shifter + 1, 2) = it->weight * it->hitTangent.z();
 			B(shifter + 1, 0) = 0.0;
 
-			shifter += 2;
+			A(shifter + 2, 0) = it->weight * it->hitBitangent.x();
+			A(shifter + 2, 1) = it->weight * it->hitBitangent.y();
+			A(shifter + 2, 2) = it->weight * it->hitBitangent.z();
+			B(shifter + 2, 0) = 0.0;
+
+			shifter += 3;
 		}
 
 		Eigen::MatrixXf X;
