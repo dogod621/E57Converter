@@ -15,6 +15,8 @@ namespace e57
 		double radius = search_radius_;
 		scannLaserInfos.clear();
 		scannLaserInfos.reserve(k);
+		Eigen::Vector3d tempVec(1.0, 1.0, 1.0);
+		tempVec /= tempVec.norm();
 
 		//
 		/*int hitIDX = 0;
@@ -86,13 +88,29 @@ namespace e57
 					double dotNN = scannLaserInfo.hitNormal.dot(scannLaserInfo.centerNormal);
 					if ((scannLaserInfo.beamFalloff > cutFalloff) && (dotNN > cutGrazing))
 					{
-						scannLaserInfo.hitTangent = Eigen::Vector3d(-scannLaserInfo.hitNormal.z(), 0, scannLaserInfo.hitNormal.x());
-						scannLaserInfo.hitTangent /= scannLaserInfo.hitTangent.norm();
-						scannLaserInfo.centerTangent = Eigen::Vector3d(-scannLaserInfo.centerNormal.z(), 0, scannLaserInfo.centerNormal.x());
-						scannLaserInfo.centerTangent /= scannLaserInfo.centerTangent.norm();
-						scannLaserInfo.weight = std::pow(std::abs(radius - d) / radius, distInterParm) * std::pow(dotNN, angleInterParm);
-						scannLaserInfo.intensity = (double)scanPoint.intensity;
-						scannLaserInfos.push_back(scannLaserInfo);
+						//scannLaserInfo.hitTangent = Eigen::Vector3d(-scannLaserInfo.hitNormal.z(), 0, scannLaserInfo.hitNormal.x());
+						scannLaserInfo.hitTangent = scannLaserInfo.hitNormal.cross(tempVec);
+						scannLaserInfo.hitTangent = scannLaserInfo.hitTangent.cross(scannLaserInfo.hitNormal);
+						double hitTangentNorm = scannLaserInfo.hitTangent.norm();
+						if (hitTangentNorm > 0.0)
+						{
+							scannLaserInfo.hitTangent /= hitTangentNorm;
+							scannLaserInfo.hitBitangent = scannLaserInfo.hitNormal.cross(scannLaserInfo.hitTangent);
+
+							//scannLaserInfo.centerTangent = Eigen::Vector3d(-scannLaserInfo.centerNormal.z(), 0, scannLaserInfo.centerNormal.x());
+							scannLaserInfo.centerTangent = scannLaserInfo.centerNormal.cross(tempVec);
+							scannLaserInfo.centerTangent = scannLaserInfo.centerTangent.cross(scannLaserInfo.centerNormal);
+							double centerTangentNorm = scannLaserInfo.centerTangent.norm();
+							if (centerTangentNorm > 0.0)
+							{
+								scannLaserInfo.centerTangent /= centerTangentNorm;
+								scannLaserInfo.centerBitangent = scannLaserInfo.centerNormal.cross(scannLaserInfo.centerTangent);
+
+								scannLaserInfo.weight = std::pow(std::abs(radius - d) / radius, distInterParm) * std::pow(dotNN, angleInterParm);
+								scannLaserInfo.intensity = (double)scanPoint.intensity;
+								scannLaserInfos.push_back(scannLaserInfo);
+							}
+						}
 					}
 				}
 				break;
@@ -114,8 +132,8 @@ namespace e57
 		Eigen::MatrixXf A;
 		Eigen::MatrixXf B;
 
-		A = Eigen::MatrixXf(scannLaserInfos.size() * 2, 3);
-		B = Eigen::MatrixXf(scannLaserInfos.size() * 2, 1);
+		A = Eigen::MatrixXf(scannLaserInfos.size() * 3, 3);
+		B = Eigen::MatrixXf(scannLaserInfos.size() * 3, 1);
 
 		std::size_t shifter = 0;
 		for (std::vector<ScannLaserInfo>::const_iterator it = scannLaserInfos.begin(); it != scannLaserInfos.end(); ++it)
@@ -123,15 +141,19 @@ namespace e57
 			A(shifter, 0) = it->weight * it->incidentDirection.x();
 			A(shifter, 1) = it->weight * it->incidentDirection.y();
 			A(shifter, 2) = it->weight * it->incidentDirection.z();
-
-			A(shifter+1, 0) = 10.0 * it->weight * it->hitTangent.x();
-			A(shifter+1, 1) = 10.0 * it->weight * it->hitTangent.y();
-			A(shifter+1, 2) = 10.0 * it->weight * it->hitTangent.z();
-
 			B(shifter, 0) = it->weight * (it->intensity / it->beamFalloff);
-			B(shifter+1, 0) = 0;
 
-			shifter += 2;
+			A(shifter + 1, 0) = it->weight * it->hitTangent.x();
+			A(shifter + 1, 1) = it->weight * it->hitTangent.y();
+			A(shifter + 1, 2) = it->weight * it->hitTangent.z();
+			B(shifter + 1, 0) = 0.0;
+
+			A(shifter + 2, 0) = it->weight * it->hitBitangent.x();
+			A(shifter + 2, 1) = it->weight * it->hitBitangent.y();
+			A(shifter + 2, 2) = it->weight * it->hitBitangent.z();
+			B(shifter + 2, 0) = 0.0;
+
+			shifter += 3;
 		}
 
 		Eigen::MatrixXf X;
@@ -140,29 +162,29 @@ namespace e57
 		case LinearSolver::EIGEN_QR:
 		{
 			X = A.colPivHouseholderQr().solve(B);
-		} 
+		}
 		break;
 		case LinearSolver::EIGEN_SVD:
 		{
 			X = A.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(B);
-		} 
+		}
 		break;
 		case LinearSolver::EIGEN_NE:
 		{
 			Eigen::MatrixXf localAT = A.transpose();
 			X = (localAT * A).ldlt().solve(localAT * B);
-		} 
+		}
 		break;
 		default:
 		{
 			throw pcl::PCLException("LinearSolver is not supported.");
-		} 
+		}
 		break;
 		}
 
 		//
 		Eigen::Vector3d xVec(X(0, 0), X(1, 0), X(2, 0));
-		if (std::isfinite(xVec.x()) && std::isfinite(xVec.y()) && std::isfinite(xVec.z())) 
+		if (std::isfinite(xVec.x()) && std::isfinite(xVec.y()) && std::isfinite(xVec.z()))
 		{
 			double xVecNorm = xVec.norm();
 			if (xVecNorm > 0.0)
@@ -204,7 +226,7 @@ namespace e57
 			{
 				const PointE57& inPoint = (*input_)[(*indices_)[idx]];
 				PointPCD& outPoint = output.points[idx];
-				
+
 				std::vector<ScannLaserInfo> scannLaserInfos;
 				Eigen::Vector3d centerNormal(outPoint.normal_x, outPoint.normal_y, outPoint.normal_z);
 				if (CollectScannLaserInfo(*surface_, *searchSurfaceNormal,
@@ -267,7 +289,7 @@ namespace e57
 #endif
 #endif
 #endif
-	}
+		}
 
 	void AlbedoEstimationOMP::SetNumberOfThreads(unsigned int nr_threads)
 	{
@@ -366,4 +388,4 @@ namespace e57
 #endif
 #endif
 	}
-}
+	}
