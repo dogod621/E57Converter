@@ -17,12 +17,8 @@ namespace e57
 		double intensity;
 		Eigen::Vector3d hitPosition;
 		Eigen::Vector3d hitNormal;
-		Eigen::Vector3d hitBitangent;
 		Eigen::Vector3d hitTangent;
 		double hitDistance;
-		Eigen::Vector3d centerNormal;
-		Eigen::Vector3d centerBitangent;
-		Eigen::Vector3d centerTangent;
 		double weight;
 		double beamFalloff;
 	};

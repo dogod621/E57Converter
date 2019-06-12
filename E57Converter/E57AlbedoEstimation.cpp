@@ -17,36 +17,14 @@ namespace e57
 		scannLaserInfos.reserve(k);
 		Eigen::Vector3d tempVec(1.0, 1.0, 1.0);
 		tempVec /= tempVec.norm();
-
-		//
-		/*int hitIDX = 0;
-		float minD = std::numeric_limits<float>::max();
-		for (std::size_t idx = 0; idx < k; ++idx)
+		Eigen::Vector3d centerTangent = centerNormal.cross(tempVec);
+		double centerTangentNorm = centerTangent.norm();
+		if (!(centerTangentNorm > 0.0))
 		{
-			if (distance[idx] < minD)
-			{
-				minD = distance[idx];
-				hitIDX = idx;
-			}
-		}
-		const PointE57& centerPoint = cloud[indices[hitIDX]];
-		const ScanInfo& centerScanInfo = scanInfos[centerPoint.label];
-		switch (centerScanInfo.scanner)
-		{
-		case Scanner::BLK360:
-		{
-			Eigen::Vector3d centerIncidentDirection = centerScanInfo.position - Eigen::Vector3d(centerPoint.x, centerPoint.y, centerPoint.z);
-			centerIncidentDirection /= centerIncidentDirection.norm();
-			if (centerIncidentDirection.dot(centerNormal) < 0)
-				centerNormal *= -1.0;
-		}
-		break;
-
-		default:
-			PCL_WARN("[e57::%s::ComputePointAlbedo] Scan data Scanner type is not support.\n", "AlbedoEstimation");
+			PCL_WARN("[e57::%s::CollectScannLaserInfo] centerTangent is not valid!!?.\n", "AlbedoEstimation");
 			return false;
-			break;
-		}*/
+		}
+		centerTangent /= centerTangentNorm;
 
 		//
 		for (std::size_t idx = 0; idx < k; ++idx)
@@ -55,7 +33,6 @@ namespace e57
 			double d = distance[idx];
 			ScannLaserInfo scannLaserInfo;
 
-			scannLaserInfo.centerNormal = centerNormal;
 			scannLaserInfo.hitNormal = Eigen::Vector3d(cloudNormal[px].normal_x, cloudNormal[px].normal_y, cloudNormal[px].normal_z);
 			if (std::abs(scannLaserInfo.hitNormal.norm() - 1.0) > 0.05)
 			{
@@ -63,61 +40,47 @@ namespace e57
 			}
 			else
 			{
-				const PointE57& scanPoint = cloud[px];
-				const ScanInfo& scanScanInfo = scanInfos[scanPoint.label];
-				scannLaserInfo.hitPosition = Eigen::Vector3d(scanPoint.x, scanPoint.y, scanPoint.z);
-				switch (scanScanInfo.scanner)
+				double dotNN = scannLaserInfo.hitNormal.dot(centerNormal);
+				if (dotNN > cutGrazing)
 				{
-				case Scanner::BLK360:
-				{
-					scannLaserInfo.incidentDirection = scanScanInfo.position - scannLaserInfo.hitPosition;
-					scannLaserInfo.hitDistance = scannLaserInfo.incidentDirection.norm();
-					scannLaserInfo.incidentDirection /= scannLaserInfo.hitDistance;
-					scannLaserInfo.reflectedDirection = scannLaserInfo.incidentDirection; // BLK360 
-
-					if (scannLaserInfo.incidentDirection.dot(scannLaserInfo.hitNormal) < 0)
-						scannLaserInfo.hitNormal *= -1.0;
-					if (scannLaserInfo.incidentDirection.dot(scannLaserInfo.centerNormal) < 0)
-						scannLaserInfo.centerNormal *= -1.0;
-
-					// Ref - BLK 360 Spec - laser wavelength & Beam divergence : https://lasers.leica-geosystems.com/global/sites/lasers.leica-geosystems.com.global/files/leica_media/product_documents/blk/853811_leica_blk360_um_v2.0.0_en.pdf
-					// Ref - Gaussian beam : https://en.wikipedia.org/wiki/Gaussian_beam
-					// Ref - Beam divergence to Beam waist(w0) : http://www2.nsysu.edu.tw/optics/laser/angle.htm
-					double temp = scannLaserInfo.hitDistance / 26.2854504782;
-					scannLaserInfo.beamFalloff = 1.0f / (1 + temp * temp);
-					double dotNN = scannLaserInfo.hitNormal.dot(scannLaserInfo.centerNormal);
-					if ((scannLaserInfo.beamFalloff > cutFalloff) && (dotNN > cutGrazing))
+					const PointE57& scanPoint = cloud[px];
+					const ScanInfo& scanScanInfo = scanInfos[scanPoint.label];
+					scannLaserInfo.hitPosition = Eigen::Vector3d(scanPoint.x, scanPoint.y, scanPoint.z);
+					switch (scanScanInfo.scanner)
 					{
-						//scannLaserInfo.hitTangent = Eigen::Vector3d(-scannLaserInfo.hitNormal.z(), 0, scannLaserInfo.hitNormal.x());
-						scannLaserInfo.hitTangent = scannLaserInfo.hitNormal.cross(tempVec);
-						scannLaserInfo.hitTangent = scannLaserInfo.hitTangent.cross(scannLaserInfo.hitNormal);
-						double hitTangentNorm = scannLaserInfo.hitTangent.norm();
-						if (hitTangentNorm > 0.0)
+					case Scanner::BLK360:
+					{
+						scannLaserInfo.incidentDirection = scanScanInfo.position - scannLaserInfo.hitPosition;
+						scannLaserInfo.hitDistance = scannLaserInfo.incidentDirection.norm();
+						scannLaserInfo.incidentDirection /= scannLaserInfo.hitDistance;
+						if (scannLaserInfo.incidentDirection.dot(scannLaserInfo.hitNormal) < 0)
+							scannLaserInfo.incidentDirection *= -1.0;
+						scannLaserInfo.reflectedDirection = scannLaserInfo.incidentDirection; // BLK360 
+
+						// Ref - BLK 360 Spec - laser wavelength & Beam divergence : https://lasers.leica-geosystems.com/global/sites/lasers.leica-geosystems.com.global/files/leica_media/product_documents/blk/853811_leica_blk360_um_v2.0.0_en.pdf
+						// Ref - Gaussian beam : https://en.wikipedia.org/wiki/Gaussian_beam
+						// Ref - Beam divergence to Beam waist(w0) : http://www2.nsysu.edu.tw/optics/laser/angle.htm
+						double temp = scannLaserInfo.hitDistance / 26.2854504782;
+						scannLaserInfo.beamFalloff = 1.0f / (1 + temp * temp);
+						if ((scannLaserInfo.beamFalloff > cutFalloff))
 						{
-							scannLaserInfo.hitTangent /= hitTangentNorm;
-							scannLaserInfo.hitBitangent = scannLaserInfo.hitNormal.cross(scannLaserInfo.hitTangent);
-
-							//scannLaserInfo.centerTangent = Eigen::Vector3d(-scannLaserInfo.centerNormal.z(), 0, scannLaserInfo.centerNormal.x());
-							scannLaserInfo.centerTangent = scannLaserInfo.centerNormal.cross(tempVec);
-							scannLaserInfo.centerTangent = scannLaserInfo.centerTangent.cross(scannLaserInfo.centerNormal);
-							double centerTangentNorm = scannLaserInfo.centerTangent.norm();
-							if (centerTangentNorm > 0.0)
+							scannLaserInfo.hitTangent = scannLaserInfo.hitNormal.cross(tempVec);
+							double hitTangentNorm = scannLaserInfo.hitTangent.norm();
+							if (hitTangentNorm > 0.0)
 							{
-								scannLaserInfo.centerTangent /= centerTangentNorm;
-								scannLaserInfo.centerBitangent = scannLaserInfo.centerNormal.cross(scannLaserInfo.centerTangent);
-
+								scannLaserInfo.hitTangent /= hitTangentNorm;
 								scannLaserInfo.weight = std::pow(std::abs(radius - d) / radius, distInterParm) * std::pow(dotNN, angleInterParm);
 								scannLaserInfo.intensity = (double)scanPoint.intensity;
 								scannLaserInfos.push_back(scannLaserInfo);
 							}
 						}
 					}
-				}
-				break;
-
-				default:
-					PCL_WARN("[e57::%s::ComputePointAlbedo] Scan data Scanner type is not support, ignore.\n", "AlbedoEstimation");
 					break;
+
+					default:
+						PCL_WARN("[e57::%s::ComputePointAlbedo] Scan data Scanner type is not support, ignore.\n", "AlbedoEstimation");
+						break;
+					}
 				}
 			}
 		}
@@ -132,8 +95,8 @@ namespace e57
 		Eigen::MatrixXf A;
 		Eigen::MatrixXf B;
 
-		A = Eigen::MatrixXf(scannLaserInfos.size() * 3, 3);
-		B = Eigen::MatrixXf(scannLaserInfos.size() * 3, 1);
+		A = Eigen::MatrixXf(scannLaserInfos.size() * 2, 3);
+		B = Eigen::MatrixXf(scannLaserInfos.size() * 2, 1);
 
 		std::size_t shifter = 0;
 		for (std::vector<ScannLaserInfo>::const_iterator it = scannLaserInfos.begin(); it != scannLaserInfos.end(); ++it)
@@ -148,12 +111,7 @@ namespace e57
 			A(shifter + 1, 2) = it->weight * it->hitTangent.z();
 			B(shifter + 1, 0) = 0.0;
 
-			A(shifter + 2, 0) = it->weight * it->hitBitangent.x();
-			A(shifter + 2, 1) = it->weight * it->hitBitangent.y();
-			A(shifter + 2, 2) = it->weight * it->hitBitangent.z();
-			B(shifter + 2, 0) = 0.0;
-
-			shifter += 3;
+			shifter += 2;
 		}
 
 		Eigen::MatrixXf X;
@@ -289,7 +247,7 @@ namespace e57
 #endif
 #endif
 #endif
-		}
+	}
 
 	void AlbedoEstimationOMP::SetNumberOfThreads(unsigned int nr_threads)
 	{
@@ -388,4 +346,4 @@ namespace e57
 #endif
 #endif
 	}
-	}
+}
