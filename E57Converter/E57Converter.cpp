@@ -875,13 +875,9 @@ namespace e57
 			{
 				PCL_INFO("[e57::ExportToPCD_Process] Estimat Albedo - Remove NAN.\n");
 				(*outPointCloud)->reserve((*outPointCloud)->size());
-				for (pcl::PointCloud<PointPCD>::iterator it = (*outPointCloud)->begin(); it != (*outPointCloud)->end(); ++it)
-				{
+				for (pcl::PointCloud<PointExchange>::iterator it = e57Cloud_CB->begin(); it != e57Cloud_CB->end(); ++it)
 					if (std::isfinite(it->intensity))
-					{
 						(*outPointCloud)->push_back(*it);
-					}
-				}
 
 				std::stringstream ss;
 				ss << "[e57::ExportToPCD_Process] Estimat Albedo - Remove NAN - inSize, outSize: " << e57Cloud_CB->size() << ", " << (*outPointCloud)->size() << ".\n";
