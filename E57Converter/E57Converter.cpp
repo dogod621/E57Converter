@@ -21,6 +21,7 @@
 #include <pcl/outofcore/outofcore_impl.h>
 #include <pcl/features/normal_3d_omp.h>
 #include <pcl/surface/mls.h>
+#include <pcl/segmentation/supervoxel_clustering.h>
 
 #include "E57Utils.h"
 #include "E57Converter.h"
@@ -1190,7 +1191,6 @@ namespace e57
 
 	void Converter::ExportToPCD_ReconstructNDF(const double voxelUnit, const unsigned int searchRadiusNumVoxels, const pcl::PointCloud<PointPCD>::Ptr& cloud, std::vector<pcl::PointCloud<PointNDF>::Ptr>& NDFs)
 	{
-		throw pcl::PCLException("Not done");
 		try
 		{
 			if (!PCD_CAN_CONTAIN_LABEL)
@@ -1206,6 +1206,76 @@ namespace e57
 
 			//
 			NDFs.clear();
+			
+			// Segment
+			PCL_INFO("[e57::%s::ExportToPCD_ReconstructNDF] Segment.\n", "Converter");
+			pcl::PointCloud<PointPCD>::Ptr cloud2(new pcl::PointCloud<PointPCD>());
+			(*cloud2) += (*cloud);
+			for (std::size_t px = 0; px < cloud->size(); px++)
+			{
+				PointPCD& p = (*cloud2)[px];
+				unsigned char color = (unsigned char)std::max(std::min((300.f * p.intensity) * 255.f, 255.f), 0.0f);
+				p.r = color;
+				p.g = color;
+				p.b = color;
+			}
+
+			//
+			int numSegment = 0;
+			float color_importance = 0.6f;
+			float spatial_importance = 0.25f;
+			float normal_importance = 1.0f;
+			pcl::SupervoxelClustering<PointPCD> super(voxelUnit, voxelUnit * searchRadiusNumVoxels);
+			super.setInputCloud(cloud2);
+			super.setColorImportance(color_importance);
+			super.setSpatialImportance(spatial_importance);
+			super.setNormalImportance(normal_importance);
+			std::map <uint32_t, pcl::Supervoxel<PointPCD>::Ptr > supervoxel_clusters;
+			super.extract(supervoxel_clusters);
+
+			pcl::PointCloud<PointPCD>::Ptr cloud3(new pcl::PointCloud<PointPCD>());
+			cloud3->reserve(cloud2->size());
+			for (std::map <uint32_t, pcl::Supervoxel<PointPCD>::Ptr >::iterator it = supervoxel_clusters.begin(); it != supervoxel_clusters.end(); ++it)
+			{
+				PCL_INFO(("[e57::%s::ExportToPCD_ReconstructNDF] Merge Segment -" + std::to_string(it->first) + ".\n").c_str(), "Converter");
+				for (pcl::PointCloud<PointPCD>::iterator sit = it->second->voxels_->begin(); sit != it->second->voxels_->end(); ++sit)
+					sit->label = it->first;
+				(*cloud3) += (*it->second->voxels_);
+				PCL_INFO(("[e57::%s::ExportToPCD_ReconstructNDF] Merge Segment End. Size " + std::to_string(cloud3->size()) + ".\n").c_str(), "Converter");
+			}
+
+			pcl::search::KdTree<PointPCD>::Ptr cloud3_tree(new pcl::search::KdTree<PointPCD>());
+			if (cloud3_tree->getInputCloud() != cloud3)
+				cloud3_tree->setInputCloud(cloud3);
+			
+			PCL_INFO("[e57::%s::ExportToPCD_ReconstructNDF] Upsampling Segment ID.\n", "Converter");
+			{
+#ifdef _OPENMP
+#pragma omp parallel for num_threads(omp_get_num_procs())
+#endif
+				for (int px = 0; px < static_cast<int> (cloud->size()); ++px)
+				{
+					PointPCD& point = (*cloud)[px];
+					std::vector<int> ki;
+					std::vector<float> kd;
+					if (cloud3_tree->nearestKSearch(point, 1, ki, kd) > 0)
+					{
+						PointPCD& kPoint = (*cloud3)[ki[0]];
+						point.label = kPoint.label;
+					}
+					else
+					{
+						point.hasLabel = -1;
+					}
+				}
+			}
+			/*
+			for (int i = 0; i < numSegment; ++i)
+			{
+				pcl::PointCloud<PointNDF>::Ptr NDF (new pcl::PointCloud<PointNDF>());
+				NDF->reserve(1000);
+				NDFs.push_back(NDF);
+			}
 			std::vector<OCTQuery> querys;
 			OCT::Iterator it(*oct);
 			while (*it != nullptr)
@@ -1225,18 +1295,8 @@ namespace e57
 				}
 				it++;
 			}
-
-			// Segment
-			int numSegment = 0;
-
-			for (int i = 0; i < numSegment; ++i)
-			{
-				pcl::PointCloud<PointNDF>::Ptr NDF (new pcl::PointCloud<PointNDF>());
-				NDF->reserve(1000);
-				NDFs.push_back(NDF);
-			}
-
 			//
+			PCL_INFO("[e57::%s::ExportToPCD_ReconstructNDF] Reconstruct NDF.\n", "Converter");
 			bool p = false;
 			std::vector<pcl::PointCloud<PointE57>::Ptr> rawE57CloudBuffer(2);
 			{
@@ -1252,7 +1312,7 @@ namespace e57
 				if (rQuery != 0) throw pcl::PCLException("ExportToPCD_ReconstructNDF_Query failed - " + std::to_string(rQuery));
 				if (rProcess != 0) throw pcl::PCLException("ExportToPCD_ReconstructNDF_Process failed - " + std::to_string(rProcess));
 				p = !p;
-			}
+			}*/
 		}
 		catch (std::exception& ex)
 		{

@@ -22,6 +22,9 @@ void Start(int argc, char **argv)
 		else if (pcl::console::find_switch(argc, argv, "-convert"))
 			Convert(argc, argv);
 
+		else if (pcl::console::find_switch(argc, argv, "-reconstructNDF"))
+			ReconstructNDF(argc, argv);
+
 		else if (pcl::console::find_switch(argc, argv, "-loadScanHDRI"))
 			LoadScanHDRI(argc, argv);
 		
@@ -50,6 +53,7 @@ void PrintHelp(int argc, char **argv)
 	std::cout << "Main Functions:===========================================================================================================================================" << std::endl << std::endl;
 	{
 		PRINT_HELP("\t"	, "convert"					, ""								, "Command that that convert inputFile to to outputFile.");
+		PRINT_HELP("\t"	, "reconstructNDF"			, ""								, "Command that that reconstruct micro-facet normal distribution for PCD file.");
 		PRINT_HELP("\t"	, "loadScanHDRI"			, ""								, "Command that that load scanHDRI info into point cloud.");
 	}
 
@@ -83,6 +87,15 @@ void PrintHelp(int argc, char **argv)
 		PRINT_HELP("\t"	, "normal"					, ""								, "Output normal.");
 		PRINT_HELP("\t"	, "rgb"						, ""								, "Output rgb.");
 		PRINT_HELP("\t"	, "camera"					, ""								, "Output camera.");
+	}
+
+	std::cout << "Parmameters of -reconstructNDF:===========================================================================================================================" << std::endl << std::endl;
+	{
+		PRINT_HELP("\t", "src", "sting \"\"", "Input OutOfCoreOctree file.");
+		PRINT_HELP("\t", "pcd", "sting \"\"", "Input and output pcd file.");
+		PRINT_HELP("\t"	, "voxelUnit"				, "float 0.01"						, "Gird voxel size in meters.");
+		PRINT_HELP("\t"	, "searchRadiusNumVoxels"	, "int 8"							, "Search radius(unit is voxel), this is used for surface/normal estimation, outlier removal and albedo reconstruction.");
+		
 	}
 
 	std::cout << "Parmameters of -loadScanHDRI:=============================================================================================================================" << std::endl << std::endl;
@@ -165,6 +178,55 @@ void Convert(int argc, char **argv)
 
 	default:break;
 	}
+}
+
+void ReconstructNDF(int argc, char **argv)
+{
+	std::cout << "ReconstructNDF:" << std::endl;
+
+	std::string _srcFilePath = "";
+	std::string _pcdFilePath = "";
+	pcl::console::parse_argument(argc, argv, "-src", _srcFilePath);
+	pcl::console::parse_argument(argc, argv, "-pcd", _pcdFilePath);
+
+	boost::filesystem::path srcFilePath(_srcFilePath);
+	boost::filesystem::path pcdFilePath(_pcdFilePath);
+
+	FileType srcFileType = GetFileType(srcFilePath);
+	FileType pcdFileType = GetFileType(pcdFilePath);
+
+	std::cout << "Parmameters -src: " << srcFilePath << std::endl;
+	std::cout << "Parmameters -pcd: " << pcdFilePath << std::endl;
+
+	if (srcFileType != FileType::OCT)
+	{
+		std::cout << "srcFileType is not OutOfCoreOctree." << std::endl;
+		exit(EXIT_FAILURE);
+	}
+
+	if (pcdFileType != FileType::PCD)
+	{
+		std::cout << "pcdFileType is not pcd." << std::endl;
+		exit(EXIT_FAILURE);
+	}
+
+	std::shared_ptr < e57::Converter > e57Converter = std::shared_ptr < e57::Converter >(new e57::Converter(srcFilePath));
+	pcl::PointCloud<PointPCD>::Ptr cloud(new pcl::PointCloud<PointPCD>);
+	pcl::io::loadPCDFile(pcdFilePath.string(), *cloud);
+
+	double voxelUnit = 0.01; // 1cm for default
+	unsigned int searchRadiusNumVoxels = 8; // searchRadius 8cm for default
+	std::cout << "Parmameters -voxelUnit: " << voxelUnit << std::endl;
+	std::cout << "Parmameters -searchRadiusNumVoxels: " << searchRadiusNumVoxels << std::endl;
+
+	std::vector<pcl::PointCloud<PointNDF>::Ptr> NDFs;
+	e57Converter->ExportToPCD_ReconstructNDF(voxelUnit, searchRadiusNumVoxels, cloud, NDFs);
+	pcl::io::savePCDFile(pcdFilePath.string(), *cloud, true);
+
+	boost::filesystem::path dirFilePath = pcdFilePath.parent_path();
+	boost::filesystem::path baseName = pcdFilePath.stem();
+	for (std::size_t i = 0; i < NDFs.size(); ++i)
+		pcl::io::savePCDFile((dirFilePath / boost::filesystem::path(baseName.string() + "_segment_"+ std::to_string(i) + "_NDF.pcd")).string(), *NDFs[i], true);
 }
 
 void LoadScanHDRI(int argc, char **argv)
