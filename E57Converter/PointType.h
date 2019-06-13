@@ -118,6 +118,19 @@ struct EIGEN_ALIGN16 _PointE57
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
+struct EIGEN_ALIGN16 _PointE57_Normal
+{
+	PCL_ADD_POINT4D;
+
+#ifdef POINT_E57_WITH_HDR
+	union EIGEN_ALIGN16 { float data_hdr[4]; struct { float hdr_r; float hdr_g; float hdr_b; float hdr_a; }; };
+#endif
+
+	ADD_NORMAL_RGB_INTENSITY_LABEL
+
+	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+};
+
 struct EIGEN_ALIGN16 _PointPCD
 {
 	PCL_ADD_POINT4D;
@@ -212,6 +225,89 @@ struct PointE57 : public _PointE57
 #endif
 };
 
+struct PointE57_Normal : public _PointE57_Normal
+{
+	inline PointE57_Normal(const PointE57& p)
+	{
+		x = p.x; y = p.y; z = p.z; data[3] = 1.0f;
+		normal_x = normal_y = normal_z = data_n[3] = curvature = 0.f;
+#ifdef POINT_E57_WITH_HDR
+		hdr_r = p.hdr_r; hdr_g = p.hdr_g; hdr_b = p.hdr_b; hdr_a = p.hdr_a;
+#endif
+#ifdef POINT_E57_WITH_RGB
+		rgba = p.rgba;
+#endif
+#ifdef POINT_E57_WITH_INTENSITY
+		intensity = p.intensity;
+#endif
+#ifdef POINT_E57_WITH_LABEL
+		label = p.label;
+#endif
+	}
+
+	inline PointE57_Normal(const PointE57_Normal& p)
+	{
+		x = p.x; y = p.y; z = p.z; data[3] = 1.0f;
+		normal_x = p.normal_x; normal_y = p.normal_y; normal_z = p.normal_z; data_n[3] = 0.f; curvature = p.curvature;
+#ifdef POINT_E57_WITH_HDR
+		hdr_r = p.hdr_r; hdr_g = p.hdr_g; hdr_b = p.hdr_b; hdr_a = p.hdr_a;
+#endif
+#ifdef POINT_E57_WITH_RGB
+		rgba = p.rgba;
+#endif
+#ifdef POINT_E57_WITH_INTENSITY
+		intensity = p.intensity;
+#endif
+#ifdef POINT_E57_WITH_LABEL
+		label = p.label;
+#endif
+	}
+
+	inline PointE57_Normal()
+	{
+		Clear();
+	}
+
+	inline void Clear()
+	{
+		x = y = z = 0.0f; data[3] = 1.f;
+		normal_x = normal_y = normal_z = data_n[3] = curvature = 0.f;
+#ifdef POINT_E57_WITH_HDR
+		hdr_r = hdr_g = hdr_b = hdr_a = 0.f;
+#endif
+#ifdef POINT_E57_WITH_RGB
+		r = g = b = 0; a = 1;
+#endif
+#ifdef POINT_E57_WITH_INTENSITY
+		intensity = 0.f;
+#endif
+#ifdef POINT_E57_WITH_LABEL
+		hasLabel = -1;
+#endif
+	}
+
+	inline bool Valid()
+	{
+		return
+			std::isfinite(x) && std::isfinite(y) && std::isfinite(z)
+			&& std::isfinite(normal_x) && std::isfinite(normal_y) && std::isfinite(normal_z) && std::isfinite(curvature)
+#ifdef POINT_E57_WITH_HDR
+			&& std::isfinite(hdr_r) && std::isfinite(hdr_g) && std::isfinite(hdr_b) && std::isfinite(hdr_a)
+#endif
+#ifdef POINT_E57_WITH_INTENSITY
+			&& std::isfinite(intensity)
+#endif
+			;
+	}
+
+#ifdef POINT_PCD_WITH_LABEL
+	inline bool HasLabel()
+	{
+		return !(hasLabel == -1);
+	}
+#endif
+};
+
 struct PointPCD : public _PointPCD
 {
 	inline PointPCD(const PointPCD& p)
@@ -231,18 +327,53 @@ struct PointPCD : public _PointPCD
 #endif
 	}
 
-	inline void FromPointE57(const PointE57& p)
+	inline PointPCD(const PointE57& p)
 	{
 		x = p.x; y = p.y; z = p.z; data[3] = 1.0f;
-#ifdef POINT_PCD_WITH_RGB
-#ifdef POINT_E57_WITH_RGB
-		rgba = p.rgba;
+#ifdef POINT_PCD_WITH_NORMAL
+		normal_x = normal_y = normal_z = data_n[3] = curvature = 0.f;
 #endif
+#ifdef POINT_PCD_WITH_RGB
+#	ifdef POINT_E57_WITH_RGB
+		rgba = p.rgba;
+#	else
+		r = g = b = 0; a = 1;
+#	endif
 #endif
 #ifdef POINT_PCD_WITH_INTENSITY
-#ifdef POINT_E57_WITH_INTENSITY
+#	ifdef POINT_E57_WITH_INTENSITY
 		intensity = p.intensity;
+#	else
+		intensity = 0.f;
+#	endif
 #endif
+#ifdef POINT_PCD_WITH_LABEL
+		label = p.label;
+#endif
+	}
+
+	inline PointPCD(const PointE57_Normal& p)
+	{
+		x = p.x; y = p.y; z = p.z; data[3] = 1.0f;
+#ifdef POINT_PCD_WITH_NORMAL
+		normal_x = p.normal_x; normal_y = p.normal_y; normal_z = p.normal_z; data_n[3] = 0.f; curvature = p.curvature;
+#endif
+#ifdef POINT_PCD_WITH_RGB
+#	ifdef POINT_E57_WITH_RGB
+		rgba = p.rgba;
+#	else
+		r = g = b = 0; a = 1;
+#	endif
+#endif
+#ifdef POINT_PCD_WITH_INTENSITY
+#	ifdef POINT_E57_WITH_INTENSITY
+		intensity = p.intensity;
+#	else
+		intensity = 0.f;
+#	endif
+#endif
+#ifdef POINT_PCD_WITH_LABEL
+		label = p.label;
 #endif
 	}
 
@@ -342,6 +473,16 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(PointE57,
 	REGISTER_E57_LABEL
 )
 POINT_CLOUD_REGISTER_POINT_WRAPPER(PointE57, PointE57)
+
+POINT_CLOUD_REGISTER_POINT_STRUCT(PointE57_Normal,
+	REGISTER_E57_XYZ
+	(float, normal_x, normal_x) (float, normal_y, normal_y) (float, normal_z, normal_z) (float, curvature, curvature)
+	REGISTER_E57_HDR
+	REGISTER_E57_RGB
+	REGISTER_E57_INTENSITY
+	REGISTER_E57_LABEL
+)
+POINT_CLOUD_REGISTER_POINT_WRAPPER(PointE57_Normal, PointE57_Normal)
 
 POINT_CLOUD_REGISTER_POINT_STRUCT(PointPCD,
 	REGISTER_PCD_XYZ

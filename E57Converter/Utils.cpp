@@ -74,6 +74,7 @@ void PrintHelp(int argc, char **argv)
 		PRINT_HELP("\t"	, "meanK"					, "int -1"							, "(Optional, set to negative to close it)Parameter for StatisticalOutlierRemoval to remove outliers.");
 		PRINT_HELP("\t"	, "polynomialOrder"			, "int -1"							, "(Optional, set to negative to close it)Parameter for MovingLeastSquares to esitmate surface. If closed, use NormalEstimation instead, or it will use MovingLeastSquares to filter and estimate normal of surface.");
 		PRINT_HELP("\t"	, "reconstructAlbedo"		, ""								, "(Optional) Enable scene albedo reconstruction.");
+		PRINT_HELP("\t"	, "reconstructNDF"			, ""								, "(Optional, if true, it will set reconstructAlbedo altomatically) Enable scene micro-facet normal distribution reconstruction.");
 	}
 
 	std::cout << "Parmameters of -convert -src \"*.pcd\"  -dst \"*.ply\":=======================================================================================================" << std::endl << std::endl;
@@ -453,11 +454,13 @@ void Convert_OCT_PCD(const boost::filesystem::path& srcFilePath, const boost::fi
 	std::cout << "Parmameters -polynomialOrder: " << polynomialOrder << std::endl;
 
 	bool reconstructAlbedo = pcl::console::find_switch(argc, argv, "-reconstructAlbedo");
+	bool reconstructNDF = pcl::console::find_switch(argc, argv, "-reconstructNDF");
 	std::cout << "Parmameters -reconstructAlbedo: " << reconstructAlbedo << std::endl;
-	
+	std::cout << "Parmameters -reconstructNDF: " << reconstructNDF << std::endl;
+
 	pcl::PointCloud<PointPCD>::Ptr cloud(new pcl::PointCloud<PointPCD>);
 	std::shared_ptr < e57::Converter > e57Converter = std::shared_ptr < e57::Converter >(new e57::Converter(srcFilePath));
-	e57Converter->ExportToPCD(voxelUnit, searchRadiusNumVoxels, meanK, polynomialOrder, reconstructAlbedo, *cloud);
+	e57Converter->ExportToPCD(voxelUnit, searchRadiusNumVoxels, meanK, polynomialOrder, reconstructAlbedo, reconstructNDF, *cloud);
 	pcl::io::savePCDFile(dstFilePath.string(), *cloud, true);
 }
 

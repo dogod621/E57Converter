@@ -2,13 +2,15 @@
 
 namespace e57
 {
-	inline bool AlbedoEstimation::CollectScannLaserInfo(const pcl::PointCloud<PointE57>& cloud, const pcl::PointCloud<pcl::Normal>& cloudNormal, const std::size_t k, const std::vector<int>& indices, const std::vector<float>& distance, Eigen::Vector3d& centerNormal, std::vector<ScannLaserInfo>& scannLaserInfos)
+	inline bool AlbedoEstimation::CollectScannLaserInfo(const pcl::PointCloud<PointE57_Normal>& cloud, const std::size_t k, const std::vector<int>& indices, const std::vector<float>& distance, const PointE57_Normal& inPoint, std::vector<ScannLaserInfo>& scannLaserInfos)
 	{
 #ifdef POINT_E57_WITH_LABEL
 #ifdef POINT_E57_WITH_INTENSITY
-		if (std::abs(centerNormal.norm() - 1.0f) > 0.05f)
+		Eigen::Vector3d inNormal (inPoint.normal_x, inPoint.normal_y, inPoint.normal_z);
+
+		if (std::abs(inNormal.norm() - 1.0f) > 0.05f)
 		{
-			PCL_WARN("[e57::%s::CollectScannLaserInfo] centerNormal is not valid!!?.\n", "AlbedoEstimation");
+			PCL_WARN("[e57::%s::CollectScannLaserInfo] inNormal is not valid!!?.\n", "AlbedoEstimation");
 			return false;
 		}
 
@@ -17,7 +19,7 @@ namespace e57
 		scannLaserInfos.reserve(k);
 		Eigen::Vector3d tempVec(1.0, 1.0, 1.0);
 		tempVec /= tempVec.norm();
-		Eigen::Vector3d centerTangent = centerNormal.cross(tempVec);
+		Eigen::Vector3d centerTangent = inNormal.cross(tempVec);
 		double centerTangentNorm = centerTangent.norm();
 		if (!(centerTangentNorm > 0.0))
 		{
@@ -31,20 +33,21 @@ namespace e57
 		{
 			int px = indices[idx];
 			double d = distance[idx];
+			const PointE57_Normal& scanPoint = cloud[px];
+			const ScanInfo& scanScanInfo = scanInfos[scanPoint.label];
 			ScannLaserInfo scannLaserInfo;
-
-			scannLaserInfo.hitNormal = Eigen::Vector3d(cloudNormal[px].normal_x, cloudNormal[px].normal_y, cloudNormal[px].normal_z);
+			
+			//
+			scannLaserInfo.hitNormal = Eigen::Vector3d(cloud[px].normal_x, cloud[px].normal_y, cloud[px].normal_z);
 			if (std::abs(scannLaserInfo.hitNormal.norm() - 1.0) > 0.05)
 			{
 				PCL_WARN("[e57::%s::CollectScannLaserInfo] scannLaserInfo.hitNormal is not valid, ignore.\n", "AlbedoEstimation");
 			}
 			else
 			{
-				double dotNN = scannLaserInfo.hitNormal.dot(centerNormal);
+				double dotNN = scannLaserInfo.hitNormal.dot(inNormal);
 				if (dotNN > cutGrazing)
 				{
-					const PointE57& scanPoint = cloud[px];
-					const ScanInfo& scanScanInfo = scanInfos[scanPoint.label];
 					scannLaserInfo.hitPosition = Eigen::Vector3d(scanPoint.x, scanPoint.y, scanPoint.z);
 					switch (scanScanInfo.scanner)
 					{
@@ -53,7 +56,7 @@ namespace e57
 						scannLaserInfo.incidentDirection = scanScanInfo.position - scannLaserInfo.hitPosition;
 						scannLaserInfo.hitDistance = scannLaserInfo.incidentDirection.norm();
 						scannLaserInfo.incidentDirection /= scannLaserInfo.hitDistance;
-						if (scannLaserInfo.incidentDirection.dot(centerNormal) < 0)
+						if (scannLaserInfo.incidentDirection.dot(inNormal) < 0)
 							scannLaserInfo.incidentDirection *= -1.0;
 						scannLaserInfo.reflectedDirection = scannLaserInfo.incidentDirection; // BLK360 
 
@@ -91,7 +94,7 @@ namespace e57
 		return scannLaserInfos.size() > 0;
 	}
 
-	inline bool AlbedoEstimation::ComputePointAlbedo(const std::vector<ScannLaserInfo>& scannLaserInfos, const PointE57& centerPoint, const Eigen::Vector3d& centerNormal, PointPCD& outPoint)
+	inline bool AlbedoEstimation::ComputePointAlbedo(const std::vector<ScannLaserInfo>& scannLaserInfos, const PointE57_Normal& inPoint, PointPCD& outPoint)
 	{
 #ifdef POINT_PCD_WITH_INTENSITY
 		Eigen::MatrixXf A;
@@ -189,17 +192,16 @@ namespace e57
 		{
 			for (std::size_t idx = 0; idx < indices_->size(); ++idx)
 			{
-				const PointE57& inPoint = (*input_)[(*indices_)[idx]];
+				const PointE57_Normal& inPoint = (*input_)[(*indices_)[idx]];
 				PointPCD& outPoint = output.points[idx];
 
 				std::vector<ScannLaserInfo> scannLaserInfos;
-				Eigen::Vector3d centerNormal(outPoint.normal_x, outPoint.normal_y, outPoint.normal_z);
-				if (CollectScannLaserInfo(*surface_, *searchSurfaceNormal,
+				if (CollectScannLaserInfo(*surface_, 
 					this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists),
 					nn_indices, nn_dists,
-					centerNormal, scannLaserInfos))
+					inPoint, scannLaserInfos))
 				{
-					if (!ComputePointAlbedo(scannLaserInfos, inPoint, centerNormal, outPoint))
+					if (!ComputePointAlbedo(scannLaserInfos, inPoint, outPoint))
 					{
 						PCL_WARN("[e57::%s::computeFeature] ComputePointAlbedo failed.\n", "AlbedoEstimation");
 						outPoint.intensity = std::numeric_limits<float>::quiet_NaN();
@@ -218,18 +220,17 @@ namespace e57
 		{
 			for (std::size_t idx = 0; idx < indices_->size(); ++idx)
 			{
-				const PointE57& inPoint = (*input_)[(*indices_)[idx]];
+				const PointE57_Normal& inPoint = (*input_)[(*indices_)[idx]];
 				PointPCD& outPoint = output.points[idx];
 				if (pcl::isFinite(inPoint))
 				{
 					std::vector<ScannLaserInfo> scannLaserInfos;
-					Eigen::Vector3d centerNormal(outPoint.normal_x, outPoint.normal_y, outPoint.normal_z);
-					if (CollectScannLaserInfo(*surface_, *searchSurfaceNormal,
+					if (CollectScannLaserInfo(*surface_, 
 						this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists),
 						nn_indices, nn_dists,
-						centerNormal, scannLaserInfos))
+						inPoint, scannLaserInfos))
 					{
-						if (!ComputePointAlbedo(scannLaserInfos, inPoint, centerNormal, outPoint))
+						if (!ComputePointAlbedo(scannLaserInfos, inPoint, outPoint))
 						{
 							PCL_WARN("[e57::%s::computeFeature] ComputePointAlbedo failed.\n", "AlbedoEstimation");
 							outPoint.intensity = std::numeric_limits<float>::quiet_NaN();
@@ -284,17 +285,16 @@ namespace e57
 #endif
 			for (int idx = 0; idx < static_cast<int> (indices_->size()); ++idx)
 			{
-				const PointE57& inPoint = (*input_)[(*indices_)[idx]];
+				const PointE57_Normal& inPoint = (*input_)[(*indices_)[idx]];
 				PointPCD& outPoint = output.points[idx];
 
 				std::vector<ScannLaserInfo> scannLaserInfos;
-				Eigen::Vector3d centerNormal(outPoint.normal_x, outPoint.normal_y, outPoint.normal_z);
-				if (CollectScannLaserInfo(*surface_, *searchSurfaceNormal,
+				if (CollectScannLaserInfo(*surface_, 
 					this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists),
 					nn_indices, nn_dists,
-					centerNormal, scannLaserInfos))
+					inPoint, scannLaserInfos))
 				{
-					if (!ComputePointAlbedo(scannLaserInfos, inPoint, centerNormal, outPoint))
+					if (!ComputePointAlbedo(scannLaserInfos, inPoint, outPoint))
 					{
 						PCL_WARN("[e57::%s::computeFeature] ComputePointAlbedo failed.\n", "AlbedoEstimationOMP");
 						outPoint.intensity = std::numeric_limits<float>::quiet_NaN();
@@ -316,18 +316,17 @@ namespace e57
 #endif
 			for (int idx = 0; idx < static_cast<int> (indices_->size()); ++idx)
 			{
-				const PointE57& inPoint = (*input_)[(*indices_)[idx]];
+				const PointE57_Normal& inPoint = (*input_)[(*indices_)[idx]];
 				PointPCD& outPoint = output.points[idx];
 				if (pcl::isFinite(inPoint))
 				{
 					std::vector<ScannLaserInfo> scannLaserInfos;
-					Eigen::Vector3d centerNormal(outPoint.normal_x, outPoint.normal_y, outPoint.normal_z);
-					if (CollectScannLaserInfo(*surface_, *searchSurfaceNormal,
+					if (CollectScannLaserInfo(*surface_, 
 						this->searchForNeighbors((*indices_)[idx], search_parameter_, nn_indices, nn_dists),
 						nn_indices, nn_dists,
-						centerNormal, scannLaserInfos))
+						inPoint, scannLaserInfos))
 					{
-						if (!ComputePointAlbedo(scannLaserInfos, inPoint, centerNormal, outPoint))
+						if (!ComputePointAlbedo(scannLaserInfos, inPoint, outPoint))
 						{
 							PCL_WARN("[e57::%s::computeFeature] ComputePointAlbedo failed.\n", "AlbedoEstimationOMP");
 							outPoint.intensity = std::numeric_limits<float>::quiet_NaN();
