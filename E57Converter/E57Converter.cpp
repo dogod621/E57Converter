@@ -1208,23 +1208,26 @@ namespace e57
 			NDFs.clear();
 			
 			// Segment
-			pcl::PointCloud<pcl::PointXYZRGBA>::Ptr cloudXYZRGBA(new pcl::PointCloud<pcl::PointXYZRGBA>());
+			pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloudXYZRGBANormal(new pcl::PointCloud<pcl::PointXYZRGBNormal>());
 			pcl::PointCloud<pcl::Normal>::Ptr cloudNormal(new pcl::PointCloud<pcl::Normal>());
-			cloudXYZRGBA->resize(cloud->size());
+			cloudXYZRGBANormal->resize(cloud->size());
 			cloudNormal->resize(cloud->size());
-			for (std::size_t px = 0; px < cloudXYZRGBA->size(); px++)
+			for (std::size_t px = 0; px < cloudXYZRGBANormal->size(); px++)
 			{
 				PointPCD& pcd = (*cloud)[px];
-				pcl::PointXYZRGBA& xyzrgba = (*cloudXYZRGBA)[px];
+				pcl::PointXYZRGBNormal& point = (*cloudXYZRGBANormal)[px];
 				pcl::Normal& normal = (*cloudNormal)[px];
 
-				xyzrgba.x = pcd.x;
-				xyzrgba.y = pcd.y;
-				xyzrgba.z = pcd.z;
+				point.x = pcd.x;
+				point.y = pcd.y;
+				point.z = pcd.z;
 				unsigned char color = (unsigned char)std::max(std::min((300.f * pcd.intensity) * 255.f, 255.f), 0.0f);
-				xyzrgba.r = color;
-				xyzrgba.g = color;
-				xyzrgba.b = color;
+				point.r = color;
+				point.g = color;
+				point.b = color;
+				point.normal_x = pcd.normal_x;
+				point.normal_y = pcd.normal_y;
+				point.normal_z = pcd.normal_z;
 				normal.normal_x = pcd.normal_x;
 				normal.normal_y = pcd.normal_y;
 				normal.normal_z = pcd.normal_z;
@@ -1234,13 +1237,13 @@ namespace e57
 			float color_importance = 0.2f;
 			float spatial_importance = 0.4f;
 			float normal_importance = 1.0f;
-			pcl::SupervoxelClustering<pcl::PointXYZRGBA> super(voxelUnit, voxelUnit * searchRadiusNumVoxels);
-			super.setInputCloud(cloudXYZRGBA);
+			pcl::SupervoxelClustering<pcl::PointXYZRGBNormal> super(voxelUnit, voxelUnit * searchRadiusNumVoxels);
+			super.setInputCloud(cloudXYZRGBANormal);
 			super.setNormalCloud(cloudNormal);
 			super.setColorImportance(color_importance);
 			super.setSpatialImportance(spatial_importance);
 			super.setNormalImportance(normal_importance);
-			std::map <uint32_t, pcl::Supervoxel<pcl::PointXYZRGBA>::Ptr > supervoxel_clusters;
+			std::map <uint32_t, pcl::Supervoxel<pcl::PointXYZRGBNormal>::Ptr > supervoxel_clusters;
 			super.extract(supervoxel_clusters);
 			pcl::PointCloud<pcl::PointXYZL>::Ptr cloudXYZL = super.getLabeledCloud();
 			PCL_INFO(("[e57::%s::ExportToPCD_ReconstructNDF] Segment End. Size " + std::to_string(cloudXYZL->size()) + ".\n").c_str(), "Converter");
