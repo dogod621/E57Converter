@@ -1238,6 +1238,7 @@ namespace e57
 			float spatial_importance = 0.4f;
 			float normal_importance = 1.0f;
 			pcl::SupervoxelClustering<pcl::PointXYZRGBNormal> super(voxelUnit, voxelUnit * searchRadiusNumVoxels);
+			//super.setUseSingleCameraTransform(false);
 			super.setInputCloud(cloudXYZRGBANormal);
 			super.setNormalCloud(cloudNormal);
 			super.setColorImportance(color_importance);
@@ -1246,7 +1247,7 @@ namespace e57
 			std::map <uint32_t, pcl::Supervoxel<pcl::PointXYZRGBNormal>::Ptr > supervoxel_clusters;
 			super.extract(supervoxel_clusters);
 			pcl::PointCloud<pcl::PointXYZL>::Ptr cloudXYZL = super.getLabeledCloud();
-			PCL_INFO(("[e57::%s::ExportToPCD_ReconstructNDF] Segment End. Size " + std::to_string(cloudXYZL->size()) + ".\n").c_str(), "Converter");
+			PCL_INFO(("[e57::%s::ExportToPCD_ReconstructNDF] Segment End. Segment " + std::to_string(supervoxel_clusters.size()) + ", Size " + std::to_string(cloudXYZL->size()) + ".\n").c_str(), "Converter");
 			pcl::search::KdTree<pcl::PointXYZL>::Ptr cloudXYZL_tree(new pcl::search::KdTree<pcl::PointXYZL>());
 			if (cloudXYZL_tree->getInputCloud() != cloudXYZL)
 				cloudXYZL_tree->setInputCloud(cloudXYZL);
