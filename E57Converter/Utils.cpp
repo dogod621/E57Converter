@@ -461,7 +461,7 @@ void Convert_OCT_PCD(const boost::filesystem::path& srcFilePath, const boost::fi
 	std::cout << "Parmameters -reconstructNDF: " << reconstructNDF << std::endl;
 	
 	pcl::PointCloud<PointPCD>::Ptr cloud(new pcl::PointCloud<PointPCD>);
-	std::vector<pcl::PointCloud<pcl::Intensity>::Ptr> NDFs;
+	std::vector<pcl::PointCloud<PointNDF>::Ptr> NDFs;
 	std::shared_ptr < e57::Converter > e57Converter = std::shared_ptr < e57::Converter >(new e57::Converter(srcFilePath));
 	e57Converter->ExportToPCD(voxelUnit, searchRadiusNumVoxels, meanK, polynomialOrder, reconstructAlbedo, reconstructNDF, cloud, NDFs);
 	pcl::io::savePCDFile(dstFilePath.string(), *cloud, true);

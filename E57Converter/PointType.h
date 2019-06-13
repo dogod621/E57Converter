@@ -163,6 +163,13 @@ struct EIGEN_ALIGN16 _PointPCD
 #endif
 };
 
+struct EIGEN_ALIGN16 _PointNDF
+{
+	PCL_ADD_POINT4D;
+	PCL_ADD_INTENSITY;
+	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+};
+
 //
 struct PointExchange;
 struct PointE57;
@@ -455,6 +462,31 @@ struct PointPCD : public _PointPCD
 #endif
 };
 
+struct PointNDF : public _PointNDF
+{
+	inline PointNDF(const PointNDF& p)
+	{
+		x = p.x; y = p.y; z = p.z; data[3] = 1.0f;
+		intensity = p.intensity;
+	}
+
+	inline PointNDF()
+	{
+		Clear();
+	}
+
+	inline void Clear()
+	{
+		x = y = z = 0.0f; data[3] = 1.f;
+		intensity = 0.f;
+	}
+
+	inline bool Valid()
+	{
+		return std::isfinite(x) && std::isfinite(y) && std::isfinite(z) && std::isfinite(intensity);
+	}
+};
+
 inline PointE57::PointE57(const PointExchange& p)
 {
 	x = p.x; y = p.y; z = p.z; data[3] = 1.0f;
@@ -606,3 +638,9 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(PointPCD,
 	REGISTER_PCD_LABEL
 )
 POINT_CLOUD_REGISTER_POINT_WRAPPER(PointPCD, PointPCD)
+
+POINT_CLOUD_REGISTER_POINT_STRUCT(PointNDF,
+	(float, x, x) (float, y, y) (float, z, z)
+	(float, intensity, intensity)
+)
+POINT_CLOUD_REGISTER_POINT_WRAPPER(PointNDF, PointNDF)

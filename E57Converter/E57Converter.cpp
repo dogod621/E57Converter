@@ -774,7 +774,7 @@ namespace e57
 											break;
 
 											default:
-												PCL_WARN("[e57::%s::ComputePointAlbedo] Scan data Scanner type is not support, ignore.\n", "AlbedoEstimation");
+												PCL_WARN("[e57::ExportToPCD_Process] Scan data Scanner type is not support!!? Ignore.\n");
 												break;
 											}
 										}
@@ -897,7 +897,7 @@ namespace e57
 		return 0;
 	}
 
-	void Converter::ExportToPCD(const double voxelUnit, const unsigned int searchRadiusNumVoxels, const int meanK, const int polynomialOrder, bool reconstructAlbedo, bool reconstructNDF, const pcl::PointCloud<PointPCD>::Ptr& out, std::vector<pcl::PointCloud<pcl::Intensity>::Ptr>& NDFs)
+	void Converter::ExportToPCD(const double voxelUnit, const unsigned int searchRadiusNumVoxels, const int meanK, const int polynomialOrder, bool reconstructAlbedo, bool reconstructNDF, const pcl::PointCloud<PointPCD>::Ptr& out, std::vector<pcl::PointCloud<PointNDF>::Ptr>& NDFs)
 	{
 		try
 		{		
@@ -988,7 +988,7 @@ namespace e57
 		}
 	}
 
-	int ExportToPCD_ReconstructNDF_Process(const std::vector<OCTQuery>* querys, const int64_t queryID, std::vector<pcl::PointCloud<PointE57>::Ptr>* rawE57CloudBuffer, bool p, const pcl::PointCloud<PointPCD>::Ptr* cloud, const std::vector<ScanInfo>* scanInfo, std::vector<pcl::PointCloud<pcl::Intensity>::Ptr>* NDFs)
+	int ExportToPCD_ReconstructNDF_Process(const std::vector<OCTQuery>* querys, const int64_t queryID, std::vector<pcl::PointCloud<PointE57>::Ptr>* rawE57CloudBuffer, bool p, const pcl::PointCloud<PointPCD>::Ptr* cloud, const std::vector<ScanInfo>* scanInfos, std::vector<pcl::PointCloud<PointNDF>::Ptr>* NDFs)
 	{
 		if (queryID >= querys->size())
 			return 0;
@@ -1049,25 +1049,146 @@ namespace e57
 			PCL_INFO(ss.str().c_str());
 		}
 
-		PCL_INFO("[e57::ExportToPCD_Process] Upsampling Normal.\n");
+		PCL_INFO("[e57::ExportToPCD_ReconstructNDF_Process] Upsampling Normal and segmentLabel ID.\n");
 		{
-			pcl::NormalEstimationOMP<PointExchange, PointExchange> ne;
-			ne.setSearchMethod(e57Cloud_tree);
-			ne.setRadiusSearch((*querys)[queryID].searchRadius);
-			ne.setSearchSurface(e57Cloud);
-			ne.setInputCloud(rawE57Cloud);
-			ne.compute(*rawE57Cloud);
+#ifdef _OPENMP
+#pragma omp parallel for num_threads(omp_get_num_procs())
+#endif
+			// Iterating over the entire index vector
+			for (int px = 0; px < static_cast<int> (rawE57Cloud->size()); ++px)
+			{
+				PointExchange& point = (*rawE57Cloud)[px];
+				std::vector<int> ki;
+				std::vector<float> kd;
+				if (e57Cloud_tree->nearestKSearch(point, 1, ki, kd) > 0)
+				{
+					PointExchange& kPoint = (*e57Cloud)[ki[0]];
+					point.normal_x = kPoint.normal_x;
+					point.normal_y = kPoint.normal_y;
+					point.normal_z = kPoint.normal_z;
+					point.curvature = kPoint.curvature;
+					point.segmentLabel = kPoint.segmentLabel;
+				}
+				else
+				{
+					point.normal_x = 0.0f;
+					point.normal_y = 0.0f;
+					point.normal_z = 0.0f;
+					point.curvature = 0.0f;
+					point.hasSegmentLabel = -1;
+				}
+			}
 		}
 
-		PCL_INFO("[e57::ExportToPCD_Process] Upsampling SegmentID.\n");
+		PCL_INFO("[e57::ExportToPCD_ReconstructNDF_Process] Reconstruct NDF.\n");
 		{
-			//e57Cloud_tree->nearestKSearch
+			double cutFalloff = 0.33;
+			Eigen::Vector3d tempVec(1.0, 1.0, 1.0);
+			tempVec /= tempVec.norm();
+
+/*#ifdef _OPENMP
+#pragma omp parallel for num_threads(omp_get_num_procs())
+#endif*/
+			for (int px = 0; px < static_cast<int> (rawE57Cloud->size()); ++px)
+			{
+				bool success = false;
+				PointExchange& point = (*rawE57Cloud)[px];
+				pcl::PointCloud<PointNDF>::Ptr& NDF = (*NDFs)[point.segmentLabel];
+				ScannLaserInfo scannLaserInfo;
+				scannLaserInfo.hitNormal = Eigen::Vector3d(point.normal_x, point.normal_y, point.normal_z);
+				if (std::abs(scannLaserInfo.hitNormal.norm() - 1.0) > 0.05)
+				{
+					PCL_WARN("[e57::ExportToPCD_ReconstructNDF_Process] scannLaserInfo.hitNormal is not valid!!? Ignore.\n");
+				}
+				else
+				{
+					const ScanInfo& scanScanInfo = (*scanInfos)[point.label];
+					switch (scanScanInfo.scanner)
+					{
+					case Scanner::BLK360:
+					{
+						scannLaserInfo.incidentDirection = scanScanInfo.position - scannLaserInfo.hitPosition;
+						scannLaserInfo.hitDistance = scannLaserInfo.incidentDirection.norm();
+						scannLaserInfo.incidentDirection /= scannLaserInfo.hitDistance;
+						if (scannLaserInfo.incidentDirection.dot(scannLaserInfo.hitNormal) < 0)
+							scannLaserInfo.incidentDirection *= -1.0;
+						scannLaserInfo.reflectedDirection = scannLaserInfo.incidentDirection; // BLK360 
+
+						// Ref - BLK 360 Spec - laser wavelength & Beam divergence : https://lasers.leica-geosystems.com/global/sites/lasers.leica-geosystems.com.global/files/leica_media/product_documents/blk/853811_leica_blk360_um_v2.0.0_en.pdf
+						// Ref - Gaussian beam : https://en.wikipedia.org/wiki/Gaussian_beam
+						// Ref - Beam divergence to Beam waist(w0) : http://www2.nsysu.edu.tw/optics/laser/angle.htm
+						double temp = scannLaserInfo.hitDistance / 26.2854504782;
+						scannLaserInfo.beamFalloff = 1.0f / (1 + temp * temp);
+						if ((scannLaserInfo.beamFalloff > cutFalloff))
+						{
+							scannLaserInfo.hitTangent = scannLaserInfo.hitNormal.cross(tempVec);
+							double hitTangentNorm = scannLaserInfo.hitTangent.norm();
+							if (hitTangentNorm > 0.0)
+							{
+								scannLaserInfo.hitTangent /= hitTangentNorm;
+								scannLaserInfo.hitBitangent = scannLaserInfo.hitNormal.cross(scannLaserInfo.hitTangent);
+								scannLaserInfo.hitBitangent /= scannLaserInfo.hitBitangent.norm();
+								scannLaserInfo.weight = 1.0;
+								scannLaserInfo.intensity = (double)point.intensity;
+								success = true;
+							}
+							else
+							{
+								PCL_WARN("[e57::ExportToPCD_ReconstructNDF_Process] scannLaserInfo.hitTangent is not valid!!? Ignore.\n");
+							}
+						}
+					}
+					break;
+
+					default:
+						PCL_WARN("[e57::ExportToPCD_ReconstructNDF_Process] Scan data Scanner type is not support, ignore.\n");
+						break;
+					}
+
+					//
+					if (success)
+					{
+						// To tan space
+						Eigen::Matrix3d TBN;
+						TBN(0, 0) = scannLaserInfo.hitTangent.x();
+						TBN(0, 1) = scannLaserInfo.hitTangent.y();
+						TBN(0, 2) = scannLaserInfo.hitTangent.z();
+
+						TBN(1, 0) = scannLaserInfo.hitBitangent.x();
+						TBN(1, 1) = scannLaserInfo.hitBitangent.y();
+						TBN(1, 2) = scannLaserInfo.hitBitangent.z();
+
+						TBN(2, 0) = scannLaserInfo.hitNormal.x();
+						TBN(2, 1) = scannLaserInfo.hitNormal.y();
+						TBN(2, 2) = scannLaserInfo.hitNormal.z();
+
+						Eigen::Vector3d hitHalfway = scannLaserInfo.incidentDirection + scannLaserInfo.reflectedDirection;
+						double hitHalfwayNorm = hitHalfway.norm();
+						if (hitHalfwayNorm > 0.0)
+						{
+							hitHalfway /= hitHalfwayNorm;
+							hitHalfway = TBN * hitHalfway;
+
+							PointNDF dataNDF;
+							dataNDF.x = hitHalfway.x();
+							dataNDF.y = hitHalfway.y();
+							dataNDF.z = hitHalfway.z();
+							dataNDF.intensity = scannLaserInfo.intensity / scannLaserInfo.beamFalloff;
+							NDF->push_back(dataNDF);
+						}
+						else
+						{
+							PCL_WARN("[e57::ExportToPCD_ReconstructNDF_Process] hitHalfway is not valid!!? Ignore.\n");
+						}
+					}
+				}
+			}
 		}
 
 		return 0;
 	}
 
-	void Converter::ExportToPCD_ReconstructNDF(const double voxelUnit, const unsigned int searchRadiusNumVoxels, const pcl::PointCloud<PointPCD>::Ptr& cloud, std::vector<pcl::PointCloud<pcl::Intensity>::Ptr>& NDFs)
+	void Converter::ExportToPCD_ReconstructNDF(const double voxelUnit, const unsigned int searchRadiusNumVoxels, const pcl::PointCloud<PointPCD>::Ptr& cloud, std::vector<pcl::PointCloud<PointNDF>::Ptr>& NDFs)
 	{
 		throw pcl::PCLException("Not done");
 		try
@@ -1106,8 +1227,15 @@ namespace e57
 			}
 
 			// Segment
+			int numSegment = 0;
 
-			
+			for (int i = 0; i < numSegment; ++i)
+			{
+				pcl::PointCloud<PointNDF>::Ptr NDF (new pcl::PointCloud<PointNDF>());
+				NDF->reserve(1000);
+				NDFs.push_back(NDF);
+			}
+
 			//
 			bool p = false;
 			std::vector<pcl::PointCloud<PointE57>::Ptr> rawE57CloudBuffer(2);
@@ -1123,7 +1251,6 @@ namespace e57
 				int rProcess = process.get();
 				if (rQuery != 0) throw pcl::PCLException("ExportToPCD_ReconstructNDF_Query failed - " + std::to_string(rQuery));
 				if (rProcess != 0) throw pcl::PCLException("ExportToPCD_ReconstructNDF_Process failed - " + std::to_string(rProcess));
-
 				p = !p;
 			}
 		}
