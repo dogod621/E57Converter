@@ -216,6 +216,8 @@ void ReconstructNDF(int argc, char **argv)
 
 	double voxelUnit = 0.01; // 1cm for default
 	unsigned int searchRadiusNumVoxels = 8; // searchRadius 8cm for default
+	pcl::console::parse_argument(argc, argv, "-voxelUnit", voxelUnit);
+	pcl::console::parse_argument(argc, argv, "-searchRadiusNumVoxels", searchRadiusNumVoxels);
 	std::cout << "Parmameters -voxelUnit: " << voxelUnit << std::endl;
 	std::cout << "Parmameters -searchRadiusNumVoxels: " << searchRadiusNumVoxels << std::endl;
 

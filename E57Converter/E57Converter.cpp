@@ -1208,36 +1208,72 @@ namespace e57
 			NDFs.clear();
 			
 			// Segment
-			PCL_INFO("[e57::%s::ExportToPCD_ReconstructNDF] Segment.\n", "Converter");
-			pcl::PointCloud<PointPCD>::Ptr cloud2(new pcl::PointCloud<PointPCD>());
-			(*cloud2) += (*cloud);
-			for (std::size_t px = 0; px < cloud->size(); px++)
+			pcl::PointCloud<pcl::PointXYZRGBA>::Ptr cloudXYZRGBA(new pcl::PointCloud<pcl::PointXYZRGBA>());
+			pcl::PointCloud<pcl::Normal>::Ptr cloudNormal(new pcl::PointCloud<pcl::Normal>());
+			cloudXYZRGBA->resize(cloud->size());
+			cloudNormal->resize(cloud->size());
+			for (std::size_t px = 0; px < cloudXYZRGBA->size(); px++)
 			{
-				PointPCD& p = (*cloud2)[px];
-				unsigned char color = (unsigned char)std::max(std::min((300.f * p.intensity) * 255.f, 255.f), 0.0f);
-				p.r = color;
-				p.g = color;
-				p.b = color;
+				PointPCD& pcd = (*cloud)[px];
+				pcl::PointXYZRGBA& xyzrgba = (*cloudXYZRGBA)[px];
+				pcl::Normal& normal = (*cloudNormal)[px];
+
+				xyzrgba.x = pcd.x;
+				xyzrgba.y = pcd.y;
+				xyzrgba.z = pcd.z;
+				unsigned char color = (unsigned char)std::max(std::min((300.f * pcd.intensity) * 255.f, 255.f), 0.0f);
+				xyzrgba.r = color;
+				xyzrgba.g = color;
+				xyzrgba.b = color;
+				normal.normal_x = pcd.normal_x;
+				normal.normal_y = pcd.normal_y;
+				normal.normal_z = pcd.normal_z;
 			}
 
 			//
-			int numSegment = 0;
-			float color_importance = 0.6f;
-			float spatial_importance = 0.25f;
+			float color_importance = 0.2f;
+			float spatial_importance = 0.4f;
 			float normal_importance = 1.0f;
-			pcl::SupervoxelClustering<PointPCD> super(voxelUnit, voxelUnit * searchRadiusNumVoxels);
-			super.setInputCloud(cloud2);
+			pcl::SupervoxelClustering<pcl::PointXYZRGBA> super(voxelUnit, voxelUnit * searchRadiusNumVoxels);
+			super.setInputCloud(cloudXYZRGBA);
+			super.setNormalCloud(cloudNormal);
 			super.setColorImportance(color_importance);
 			super.setSpatialImportance(spatial_importance);
 			super.setNormalImportance(normal_importance);
-			std::map <uint32_t, pcl::Supervoxel<PointPCD>::Ptr > supervoxel_clusters;
+			std::map <uint32_t, pcl::Supervoxel<pcl::PointXYZRGBA>::Ptr > supervoxel_clusters;
 			super.extract(supervoxel_clusters);
+			pcl::PointCloud<pcl::PointXYZL>::Ptr cloudXYZL = super.getLabeledCloud();
+			PCL_INFO(("[e57::%s::ExportToPCD_ReconstructNDF] Segment End. Size " + std::to_string(cloudXYZL->size()) + ".\n").c_str(), "Converter");
+			pcl::search::KdTree<pcl::PointXYZL>::Ptr cloudXYZL_tree(new pcl::search::KdTree<pcl::PointXYZL>());
+			if (cloudXYZL_tree->getInputCloud() != cloudXYZL)
+				cloudXYZL_tree->setInputCloud(cloudXYZL);
 
-			pcl::PointCloud<PointPCD>::Ptr cloud3(new pcl::PointCloud<PointPCD>());
+			PCL_INFO("[e57::%s::ExportToPCD_ReconstructNDF] Upsampling Segment ID.\n", "Converter");
+			{
+#ifdef _OPENMP
+#pragma omp parallel for num_threads(omp_get_num_procs())
+#endif
+				for (int px = 0; px < static_cast<int> (cloud->size()); ++px)
+				{
+					PointPCD& point = (*cloud)[px];
+					std::vector<int> ki;
+					std::vector<float> kd;
+					pcl::PointXYZL c;
+					c.x = point.x;
+					c.y = point.y;
+					c.z = point.z;
+					if (cloudXYZL_tree->nearestKSearch(c, 1, ki, kd) > 0)
+						point.label = (*cloudXYZL)[ki[0]].label;
+					else
+						point.hasLabel = -1;
+				}
+			}
+
+			/*pcl::PointCloud<PointPCD>::Ptr cloud3(new pcl::PointCloud<PointPCD>());
 			cloud3->reserve(cloud2->size());
 			for (std::map <uint32_t, pcl::Supervoxel<PointPCD>::Ptr >::iterator it = supervoxel_clusters.begin(); it != supervoxel_clusters.end(); ++it)
 			{
-				PCL_INFO(("[e57::%s::ExportToPCD_ReconstructNDF] Merge Segment -" + std::to_string(it->first) + ".\n").c_str(), "Converter");
+				PCL_INFO(("[e57::%s::ExportToPCD_ReconstructNDF] Merge Segment - " + std::to_string(it->first) + ", Size - " + std::to_string(it->second->voxels_->size()) + ".\n").c_str(), "Converter");
 				for (pcl::PointCloud<PointPCD>::iterator sit = it->second->voxels_->begin(); sit != it->second->voxels_->end(); ++sit)
 					sit->label = it->first;
 				(*cloud3) += (*it->second->voxels_);
@@ -1268,7 +1304,8 @@ namespace e57
 						point.hasLabel = -1;
 					}
 				}
-			}
+			}*/
+
 			/*
 			for (int i = 0; i < numSegment; ++i)
 			{
