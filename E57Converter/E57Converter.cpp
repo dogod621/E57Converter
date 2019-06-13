@@ -24,7 +24,7 @@
 
 #include "E57Utils.h"
 #include "E57Converter.h"
-#include "E57AlbedoEstimation.h"
+//#include "E57AlbedoEstimation.h"
 #include "E57BLK360HDRI.h"
 
 namespace e57
@@ -529,8 +529,8 @@ namespace e57
 		PCL_INFO("[e57::ExportToPCD_Query] End. \n");
 		return 0;
 	}
-
-	int ExportToPCD_Process(const std::vector<OCTQuery>* querys, const int64_t queryID, std::vector<pcl::PointCloud<PointE57>::Ptr>* rawE57CloudBuffer, bool p, const std::vector<ScanInfo>* scanInfo, pcl::PointCloud<PointPCD>::Ptr* outPointCloud)
+	
+	int ExportToPCD_Process(const std::vector<OCTQuery>* querys, const int64_t queryID, std::vector<pcl::PointCloud<PointE57>::Ptr>* rawE57CloudBuffer, bool p, const std::vector<ScanInfo>* scanInfos, pcl::PointCloud<PointPCD>::Ptr* outPointCloud)
 	{
 		if (queryID >= querys->size())
 			return 0;
@@ -538,6 +538,7 @@ namespace e57
 			return 1;
 		if (outPointCloud->get() == nullptr)
 			return 2;
+		(*outPointCloud)->clear();
 
 		std::stringstream ss;
 		ss << "[e57::ExportToPCD_Process] Start - query" << queryID << "/" << querys->size() << ".\n";
@@ -630,11 +631,6 @@ namespace e57
 			PCL_INFO(ss.str().c_str());
 		}
 
-		//
-		(*outPointCloud)->resize(e57Cloud_CB->size());
-		for (std::size_t pi = 0; pi < e57Cloud_CB->size(); ++pi)
-			(*(*outPointCloud))[pi] = (*e57Cloud_CB)[pi];
-
 		// Estimate albedo
 		if ((*querys)[queryID].reconstructAlbedo)
 		{
@@ -647,7 +643,7 @@ namespace e57
 					e57Cloud_tree->setInputCloud(e57Cloud);
 
 #ifdef _OPENMP
-#pragma omp parallel for shared (rawE57Cloud) num_threads(omp_get_num_procs())
+#pragma omp parallel for num_threads(omp_get_num_procs())
 #endif
 				// Iterating over the entire index vector
 				for (int px = 0; px < static_cast<int> (rawE57Cloud->size()); ++px)
@@ -657,11 +653,11 @@ namespace e57
 					std::vector<float> kd;
 					if (e57Cloud_tree->nearestKSearch(point, 1, ki, kd) > 0)
 					{
-						PointExchange& k = (*e57Cloud)[ki[0]];
-						point.normal_x = k.normal_x;
-						point.normal_y = k.normal_y;
-						point.normal_z = k.normal_z;
-						point.curvature = k.curvature;
+						PointExchange& kPoint = (*e57Cloud)[ki[0]];
+						point.normal_x = kPoint.normal_x;
+						point.normal_y = kPoint.normal_y;
+						point.normal_z = kPoint.normal_z;
+						point.curvature = kPoint.curvature;
 					}
 					else
 					{
@@ -671,61 +667,233 @@ namespace e57
 						point.curvature = 0.0f;
 					}
 				}
-
-
-				/*for (pcl::PointCloud<PointExchange>::iterator it = rawE57Cloud->begin(); it != rawE57Cloud->end(); ++it)
-				{
-					std::vector<int> ki;
-					std::vector<float> kd;
-					if (e57Cloud_tree->nearestKSearch(*it, 1, ki, kd) > 0)
-					{
-						PointExchange& k = (*e57Cloud)[ki[0]];
-						it->normal_x = k.normal_x;
-						it->normal_y = k.normal_y;
-						it->normal_z = k.normal_z;
-						it->curvature = k.curvature;
-					}
-					else
-					{
-						it->normal_x = 0.0f;
-						it->normal_y = 0.0f;
-						it->normal_z = 0.0f;
-						it->curvature = 0.0f;
-					}
-				}*/
 			}
 
 			PCL_INFO("[e57::ExportToPCD_Process] Estimat Albedo - Estimat Albedo.\n");
 			{
-				AlbedoEstimationOMP ae(*scanInfo);
+				/*AlbedoEstimationOMP ae(*scanInfos);
 				ae.setSearchMethod(rawE57Cloud_tree);
 				ae.setRadiusSearch((*querys)[queryID].searchRadius);
 				ae.setSearchSurface(rawE57Cloud);
 				ae.setInputCloud(e57Cloud_CB);
-				ae.compute(*(*outPointCloud));
+				ae.compute(*(*outPointCloud));*/
+
+				if (rawE57Cloud_tree->getInputCloud() != rawE57Cloud)
+					rawE57Cloud_tree->setInputCloud(rawE57Cloud);
+
+				//
+				LinearSolver linearSolver = LinearSolver::EIGEN_SVD;
+				double distInterParm = 10.0;
+				double angleInterParm = 20.0;
+				double frontInterParm = 5.0;
+				double cutFalloff = 0.33;
+				double cutGrazing = 0.86602540378;
+				double radius = (*querys)[queryID].searchRadius;
+				Eigen::Vector3d tempVec(1.0, 1.0, 1.0);
+				tempVec /= tempVec.norm();
+
+#ifdef _OPENMP
+#pragma omp parallel for shared (e57Cloud_CB) num_threads(omp_get_num_procs())
+#endif
+				for (int px = 0; px < static_cast<int> (e57Cloud_CB->size()); ++px)
+				{
+					bool success = false;
+					std::vector<int> ki;
+					std::vector<float> kd;
+					PointExchange& point = (*e57Cloud_CB)[px];
+					Eigen::Vector3d pointNormal(point.normal_x, point.normal_y, point.normal_z);
+					if (std::abs(pointNormal.norm() - 1.0f) > 0.05f)
+					{
+						PCL_WARN("[e57::ExportToPCD_Process] pointNormal is not valid!!?.\n");
+					}
+					else
+					{
+						std::vector<ScannLaserInfo> scannLaserInfos;
+						int numk = rawE57Cloud_tree->radiusSearch(point, radius, ki, kd);
+						if (numk > 0)
+						{
+							scannLaserInfos.reserve(numk);
+							for (int k = 0; k < numk; ++k)
+							{
+								PointExchange& kPoint = (*rawE57Cloud)[ki[k]];
+								double d = std::sqrt(kd[k]);
+								if (d > radius)
+								{
+									PCL_WARN("[e57::ExportToPCD_Process] distance is larger then radius!!? Ignore.\n");
+								}
+								else
+								{
+									ScannLaserInfo scannLaserInfo;
+									const ScanInfo& scanScanInfo = (*scanInfos)[kPoint.label];
+									scannLaserInfo.hitNormal = Eigen::Vector3d(kPoint.normal_x, kPoint.normal_y, kPoint.normal_z);
+									if (std::abs(scannLaserInfo.hitNormal.norm() - 1.0) > 0.05)
+									{
+										PCL_WARN("[e57::ExportToPCD_Process] scannLaserInfo.hitNormal is not valid!!? Ignore.\n");
+									}
+									else
+									{
+										double dotNN = scannLaserInfo.hitNormal.dot(pointNormal);
+										if (dotNN > cutGrazing)
+										{
+											scannLaserInfo.hitPosition = Eigen::Vector3d(kPoint.x, kPoint.y, kPoint.z);
+											switch (scanScanInfo.scanner)
+											{
+											case Scanner::BLK360:
+											{
+												scannLaserInfo.incidentDirection = scanScanInfo.position - scannLaserInfo.hitPosition;
+												scannLaserInfo.hitDistance = scannLaserInfo.incidentDirection.norm();
+												scannLaserInfo.incidentDirection /= scannLaserInfo.hitDistance;
+												if (scannLaserInfo.incidentDirection.dot(pointNormal) < 0)
+													scannLaserInfo.incidentDirection *= -1.0;
+												scannLaserInfo.reflectedDirection = scannLaserInfo.incidentDirection; // BLK360 
+
+												// Ref - BLK 360 Spec - laser wavelength & Beam divergence : https://lasers.leica-geosystems.com/global/sites/lasers.leica-geosystems.com.global/files/leica_media/product_documents/blk/853811_leica_blk360_um_v2.0.0_en.pdf
+												// Ref - Gaussian beam : https://en.wikipedia.org/wiki/Gaussian_beam
+												// Ref - Beam divergence to Beam waist(w0) : http://www2.nsysu.edu.tw/optics/laser/angle.htm
+												double temp = scannLaserInfo.hitDistance / 26.2854504782;
+												scannLaserInfo.beamFalloff = 1.0f / (1 + temp * temp);
+												if ((scannLaserInfo.beamFalloff > cutFalloff))
+												{
+													scannLaserInfo.hitTangent = scannLaserInfo.hitNormal.cross(tempVec);
+													double hitTangentNorm = scannLaserInfo.hitTangent.norm();
+													if (hitTangentNorm > 0.0)
+													{
+														scannLaserInfo.hitTangent /= hitTangentNorm;
+														scannLaserInfo.hitBitangent = scannLaserInfo.hitNormal.cross(scannLaserInfo.hitTangent);
+														scannLaserInfo.hitBitangent /= scannLaserInfo.hitBitangent.norm();
+														scannLaserInfo.weight = std::pow((radius - d) / radius, distInterParm) * std::pow(dotNN, angleInterParm);
+														scannLaserInfo.intensity = (double)kPoint.intensity;
+														scannLaserInfos.push_back(scannLaserInfo);
+													}
+													else
+													{
+														PCL_WARN("[e57::ExportToPCD_Process] scannLaserInfo.hitTangent is not valid!!? Ignore.\n");
+													}
+												}
+											}
+											break;
+
+											default:
+												PCL_WARN("[e57::%s::ComputePointAlbedo] Scan data Scanner type is not support, ignore.\n", "AlbedoEstimation");
+												break;
+											}
+										}
+									}
+								}
+							}
+						}
+						if (scannLaserInfos.size() > 0)
+						{
+							Eigen::MatrixXf A;
+							Eigen::MatrixXf B;
+							A = Eigen::MatrixXf(scannLaserInfos.size() * 3, 3);
+							B = Eigen::MatrixXf(scannLaserInfos.size() * 3, 1);
+
+							std::size_t shifter = 0;
+							for (std::vector<ScannLaserInfo>::const_iterator it = scannLaserInfos.begin(); it != scannLaserInfos.end(); ++it)
+							{
+								A(shifter, 0) = it->weight * it->incidentDirection.x();
+								A(shifter, 1) = it->weight * it->incidentDirection.y();
+								A(shifter, 2) = it->weight * it->incidentDirection.z();
+								B(shifter, 0) = it->weight * (it->intensity / it->beamFalloff);
+
+								A(shifter + 1, 0) = it->weight * it->hitTangent.x();
+								A(shifter + 1, 1) = it->weight * it->hitTangent.y();
+								A(shifter + 1, 2) = it->weight * it->hitTangent.z();
+								B(shifter + 1, 0) = 0.0;
+
+								A(shifter + 2, 0) = it->weight * it->hitBitangent.x();
+								A(shifter + 2, 1) = it->weight * it->hitBitangent.y();
+								A(shifter + 2, 2) = it->weight * it->hitBitangent.z();
+								B(shifter + 2, 0) = 0.0;
+
+								shifter += 3;
+							}
+
+							Eigen::MatrixXf X;
+							switch (linearSolver)
+							{
+							case LinearSolver::EIGEN_QR:
+							{
+								X = A.colPivHouseholderQr().solve(B);
+							}
+							break;
+							case LinearSolver::EIGEN_SVD:
+							{
+								X = A.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(B);
+							}
+							break;
+							case LinearSolver::EIGEN_NE:
+							{
+								Eigen::MatrixXf localAT = A.transpose();
+								X = (localAT * A).ldlt().solve(localAT * B);
+							}
+							break;
+							default:
+							{
+								throw pcl::PCLException("LinearSolver is not supported.");
+							}
+							break;
+							}
+
+							//
+							Eigen::Vector3d xVec(X(0, 0), X(1, 0), X(2, 0));
+							if (std::isfinite(xVec.x()) && std::isfinite(xVec.y()) && std::isfinite(xVec.z()))
+							{
+								double xVecNorm = xVec.norm();
+								if (xVecNorm > 0.0)
+								{
+									point.intensity = xVecNorm;
+									xVec /= xVecNorm;
+									point.normal_x = xVec.x();
+									point.normal_y = xVec.y();
+									point.normal_z = xVec.z();
+									success = true;
+								}
+								else
+								{
+									PCL_WARN("[e57::%s::ComputePointAlbedo] LinearSolver solve zero norm.\n", "AlbedoEstimation");
+								}
+							}
+							else
+							{
+								PCL_WARN("[e57::%s::ComputePointAlbedo] LinearSolver solve non finite value.\n", "AlbedoEstimation");
+							}
+						}
+					}
+					if (!success)
+					{
+						PCL_WARN("[e57::ExportToPCD_Process] Estimat Albedo - failed, ignore.\n");
+						point.intensity = std::numeric_limits<float>::quiet_NaN();
+						e57Cloud_CB->is_dense = false;
+					}
+				}
 			}
 
 			//
-			if (!(*outPointCloud)->is_dense)
+			if (!e57Cloud_CB->is_dense)
 			{
 				PCL_INFO("[e57::ExportToPCD_Process] Estimat Albedo - Remove NAN.\n");
-
-				pcl::PointCloud<PointPCD>::Ptr pcdCloud_Valid(new pcl::PointCloud<PointPCD>);
-				pcdCloud_Valid->reserve((*outPointCloud)->size());
+				(*outPointCloud)->reserve((*outPointCloud)->size());
 				for (pcl::PointCloud<PointPCD>::iterator it = (*outPointCloud)->begin(); it != (*outPointCloud)->end(); ++it)
 				{
 					if (std::isfinite(it->intensity))
 					{
-						pcdCloud_Valid->push_back(*it);
+						(*outPointCloud)->push_back(*it);
 					}
 				}
 
 				std::stringstream ss;
-				ss << "[e57::ExportToPCD_Process] Estimat Albedo - Remove NAN - inSize, outSize: " << (*outPointCloud)->size() << ", " << pcdCloud_Valid->size() << ".\n";
+				ss << "[e57::ExportToPCD_Process] Estimat Albedo - Remove NAN - inSize, outSize: " << e57Cloud_CB->size() << ", " << (*outPointCloud)->size() << ".\n";
 				PCL_INFO(ss.str().c_str());
-
-				(*outPointCloud) = pcdCloud_Valid;
 			}
+			else
+			{
+				(*outPointCloud)->resize(e57Cloud_CB->size());
+				for (std::size_t pi = 0; pi < e57Cloud_CB->size(); ++pi)
+					(*(*outPointCloud))[pi] = (*e57Cloud_CB)[pi];
+			}
+
 		}
 
 		//

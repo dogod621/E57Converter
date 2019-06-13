@@ -198,3 +198,17 @@ RAEMode StrToRAEMode(const std::string& str);
 Eigen::Vector3d RAEToXYZ(RAEMode type, const Eigen::Vector3d& rae);
 Eigen::Vector3d XYZToRAE(RAEMode type, const Eigen::Vector3d& xyz);
 Eigen::Vector2d RAEToUV(RAEMode type, const Eigen::Vector3d& rae);
+
+struct ScannLaserInfo
+{
+	Eigen::Vector3d incidentDirection;
+	Eigen::Vector3d reflectedDirection;
+	double intensity;
+	Eigen::Vector3d hitPosition;
+	Eigen::Vector3d hitNormal;
+	Eigen::Vector3d hitTangent;
+	Eigen::Vector3d hitBitangent;
+	double hitDistance;
+	double weight;
+	double beamFalloff;
+};
