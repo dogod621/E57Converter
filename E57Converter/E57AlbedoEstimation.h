@@ -24,22 +24,22 @@ namespace e57
 		double beamFalloff;
 	};
 
-	class AlbedoEstimation : public pcl::Feature<PointE57_Normal, PointPCD>
+	class AlbedoEstimation : public pcl::Feature<PointExchange, PointPCD>
 	{
 	public:
 		typedef boost::shared_ptr<AlbedoEstimation> Ptr;
 		typedef boost::shared_ptr<const AlbedoEstimation> ConstPtr;
-		using pcl::Feature<PointE57_Normal, PointPCD>::feature_name_;
-		using pcl::Feature<PointE57_Normal, PointPCD>::getClassName;
-		using pcl::Feature<PointE57_Normal, PointPCD>::indices_;
-		using pcl::Feature<PointE57_Normal, PointPCD>::input_;
-		using pcl::Feature<PointE57_Normal, PointPCD>::surface_;
-		using pcl::Feature<PointE57_Normal, PointPCD>::k_;
-		using pcl::Feature<PointE57_Normal, PointPCD>::search_radius_;
-		using pcl::Feature<PointE57_Normal, PointPCD>::search_parameter_;
+		using pcl::Feature<PointExchange, PointPCD>::feature_name_;
+		using pcl::Feature<PointExchange, PointPCD>::getClassName;
+		using pcl::Feature<PointExchange, PointPCD>::indices_;
+		using pcl::Feature<PointExchange, PointPCD>::input_;
+		using pcl::Feature<PointExchange, PointPCD>::surface_;
+		using pcl::Feature<PointExchange, PointPCD>::k_;
+		using pcl::Feature<PointExchange, PointPCD>::search_radius_;
+		using pcl::Feature<PointExchange, PointPCD>::search_parameter_;
 
-		typedef typename pcl::Feature<PointE57_Normal, PointPCD>::PointCloudOut PointCloudOut;
-		typedef typename pcl::Feature<PointE57_Normal, PointPCD>::PointCloudConstPtr PointCloudConstPtr;
+		typedef typename pcl::Feature<PointExchange, PointPCD>::PointCloudOut PointCloudOut;
+		typedef typename pcl::Feature<PointExchange, PointPCD>::PointCloudConstPtr PointCloudConstPtr;
 
 	public:
 		AlbedoEstimation(const std::vector<ScanInfo>& scanInfos, 
@@ -56,9 +56,9 @@ namespace e57
 			input_ = cloud;
 		}
 
-		inline bool CollectScannLaserInfo(const pcl::PointCloud<PointE57_Normal>& cloud, const std::size_t k, const std::vector<int>& indices, const std::vector<float>& distance, const PointE57_Normal& inPoint, std::vector<ScannLaserInfo>& scannLaserInfos);
+		inline bool CollectScannLaserInfo(const pcl::PointCloud<PointExchange>& cloud, const std::size_t k, const std::vector<int>& indices, const std::vector<float>& distance, const PointExchange& inPoint, std::vector<ScannLaserInfo>& scannLaserInfos);
 
-		inline bool ComputePointAlbedo(const std::vector<ScannLaserInfo>& scannLaserInfos, const PointE57_Normal& inPoint, PointPCD& outPoint);
+		inline bool ComputePointAlbedo(const std::vector<ScannLaserInfo>& scannLaserInfos, const PointExchange& inPoint, PointPCD& outPoint);
 
 
 	protected:

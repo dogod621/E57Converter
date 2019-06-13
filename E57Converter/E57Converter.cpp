@@ -544,17 +544,19 @@ namespace e57
 		PCL_INFO(ss.str().c_str());
 
 		//
-		pcl::PointCloud<PointE57_Normal>::Ptr rawE57Cloud(new pcl::PointCloud<PointE57_Normal>());
+		pcl::PointCloud<PointExchange>::Ptr rawE57Cloud(new pcl::PointCloud<PointExchange>());
 		rawE57Cloud->resize((*rawE57CloudBuffer)[p]->size());
 		for (std::size_t pi = 0; pi < rawE57Cloud->size(); ++pi)
 			(*rawE57Cloud)[pi] = (*(*rawE57CloudBuffer)[p])[pi];
+		pcl::search::KdTree<PointExchange>::Ptr rawE57Cloud_tree(new pcl::search::KdTree<PointExchange>());
 
-		pcl::PointCloud<PointE57_Normal>::Ptr e57Cloud(new pcl::PointCloud<PointE57_Normal>);
+		pcl::PointCloud<PointExchange>::Ptr e57Cloud(new pcl::PointCloud<PointExchange>);
+		pcl::search::KdTree<PointExchange>::Ptr e57Cloud_tree(new pcl::search::KdTree<PointExchange>());
 
 		// DownSampling
 		{
 			PCL_INFO("[e57::ExportToPCD_Process] DownSampling.\n");
-			pcl::VoxelGrid<PointE57_Normal> vf;
+			pcl::VoxelGrid<PointExchange> vf;
 			vf.setLeafSize((*querys)[queryID].voxelUnit, (*querys)[queryID].voxelUnit, (*querys)[queryID].voxelUnit);
 			vf.setInputCloud(rawE57Cloud);
 			vf.filter(*e57Cloud);
@@ -568,8 +570,8 @@ namespace e57
 		{
 			PCL_INFO("[e57::ExportToPCD_Process] Outlier Removal.\n");
 
-			pcl::PointCloud<PointE57_Normal>::Ptr e57Cloud_OLR(new pcl::PointCloud<PointE57_Normal>);
-			pcl::StatisticalOutlierRemoval<PointE57_Normal> olr;
+			pcl::PointCloud<PointExchange>::Ptr e57Cloud_OLR(new pcl::PointCloud<PointExchange>);
+			pcl::StatisticalOutlierRemoval<PointExchange> olr;
 			olr.setMeanK((*querys)[queryID].meanK);
 			olr.setStddevMulThresh(1.0);
 			olr.setInputCloud(e57Cloud);
@@ -582,19 +584,18 @@ namespace e57
 		}
 
 		// Crop Box
-		pcl::PointCloud<PointE57_Normal>::Ptr e57Cloud_CB(new pcl::PointCloud<PointE57_Normal>);
-
+		pcl::PointCloud<PointExchange>::Ptr e57Cloud_CB(new pcl::PointCloud<PointExchange>);
+		
 		// Estimat Surface
 		if ((*querys)[queryID].polynomialOrder > 0)
 		{
 			PCL_INFO("[e57::ExportToPCD_Process] Estimat Surface.\n");
 
 			//  Copy to pcdCloud
-			pcl::search::KdTree<PointE57_Normal>::Ptr tree(new pcl::search::KdTree<PointE57_Normal>());
-			pcl::MovingLeastSquares<PointE57_Normal, PointE57_Normal> mls;
+			pcl::MovingLeastSquares<PointExchange, PointExchange> mls;
 			mls.setComputeNormals(PCD_CAN_CONTAIN_NORMAL);
 			mls.setPolynomialOrder((*querys)[queryID].polynomialOrder);
-			mls.setSearchMethod(tree);
+			mls.setSearchMethod(e57Cloud_tree);
 			mls.setSearchRadius((*querys)[queryID].searchRadius);
 			mls.setInputCloud(e57Cloud);
 			mls.process(*e57Cloud);
@@ -602,7 +603,7 @@ namespace e57
 			// Crop Box
 			PCL_INFO("[e57::ExportToPCD_Process] Crop Box.\n");
 
-			pcl::CropBox<PointE57_Normal> cb;
+			pcl::CropBox<PointExchange> cb;
 			cb.setMin(Eigen::Vector4f((*querys)[queryID].minBB.x(), (*querys)[queryID].minBB.y(), (*querys)[queryID].minBB.z(), 1.0));
 			cb.setMax(Eigen::Vector4f((*querys)[queryID].maxBB.x(), (*querys)[queryID].maxBB.y(), (*querys)[queryID].maxBB.z(), 1.0));
 			cb.setInputCloud(e57Cloud);
@@ -617,7 +618,7 @@ namespace e57
 			// Crop Box
 			PCL_INFO("[e57::ExportToPCD_Process] Crop Box.\n");
 
-			pcl::CropBox<PointE57_Normal> cb;
+			pcl::CropBox<PointExchange> cb;
 			cb.setMin(Eigen::Vector4f((*querys)[queryID].minBB.x(), (*querys)[queryID].minBB.y(), (*querys)[queryID].minBB.z(), 1.0));
 			cb.setMax(Eigen::Vector4f((*querys)[queryID].maxBB.x(), (*querys)[queryID].maxBB.y(), (*querys)[queryID].maxBB.z(), 1.0));
 			cb.setInputCloud(e57Cloud);
@@ -632,9 +633,8 @@ namespace e57
 				PCL_INFO("[e57::ExportToPCD_Process] Estimat Normal.\n");
 
 				//
-				pcl::search::KdTree<PointE57_Normal>::Ptr tree(new pcl::search::KdTree<PointE57_Normal>());
-				pcl::NormalEstimationOMP<PointE57_Normal, PointE57_Normal> ne;
-				ne.setSearchMethod(tree);
+				pcl::NormalEstimationOMP<PointExchange, PointExchange> ne;
+				ne.setSearchMethod(e57Cloud_tree);
 				ne.setRadiusSearch((*querys)[queryID].searchRadius);
 				ne.setSearchSurface(e57Cloud);
 				ne.setInputCloud(e57Cloud_CB);
@@ -656,9 +656,8 @@ namespace e57
 			//
 			PCL_INFO("[e57::ExportToPCD_Process] Estimat Albedo - Upsampling Normal.\n");
 			{
-				pcl::search::KdTree<PointE57_Normal>::Ptr tree(new pcl::search::KdTree<PointE57_Normal>());
-				pcl::NormalEstimationOMP<PointE57_Normal, PointE57_Normal> ne;
-				ne.setSearchMethod(tree);
+				pcl::NormalEstimationOMP<PointExchange, PointExchange> ne;
+				ne.setSearchMethod(e57Cloud_tree);
 				ne.setRadiusSearch((*querys)[queryID].searchRadius);
 				ne.setSearchSurface(e57Cloud);
 				ne.setInputCloud(rawE57Cloud);
@@ -667,9 +666,8 @@ namespace e57
 
 			PCL_INFO("[e57::ExportToPCD_Process] Estimat Albedo - Estimat Albedo.\n");
 			{
-				pcl::search::KdTree<PointE57_Normal>::Ptr tree(new pcl::search::KdTree<PointE57_Normal>());
 				AlbedoEstimationOMP ae(*scanInfo);
-				ae.setSearchMethod(tree);
+				ae.setSearchMethod(rawE57Cloud_tree);
 				ae.setRadiusSearch((*querys)[queryID].searchRadius);
 				ae.setSearchSurface(rawE57Cloud);
 				ae.setInputCloud(e57Cloud_CB);
@@ -699,19 +697,12 @@ namespace e57
 			}
 		}
 
-		// Estimate NDF
-		if ((*querys)[queryID].reconstructNDF)
-		{
-
-
-		}
-
 		//
 		PCL_INFO("[e57::ExportToPCD_Process] End. \n");
 		return 0;
 	}
 
-	void Converter::ExportToPCD(const double voxelUnit, const unsigned int searchRadiusNumVoxels, const int meanK, const int polynomialOrder, bool reconstructAlbedo, bool reconstructNDF, pcl::PointCloud<PointPCD>& out)
+	void Converter::ExportToPCD(const double voxelUnit, const unsigned int searchRadiusNumVoxels, const int meanK, const int polynomialOrder, bool reconstructAlbedo, bool reconstructNDF, const pcl::PointCloud<PointPCD>::Ptr& out, std::vector<pcl::PointCloud<pcl::Intensity>::Ptr>& NDFs)
 	{
 		try
 		{		
@@ -735,7 +726,7 @@ namespace e57
 			}
 
 			//
-			out.clear();
+			out->clear();
 			std::vector<OCTQuery> querys;
 			OCT::Iterator it(*oct);
 			while (*it != nullptr)
@@ -776,10 +767,10 @@ namespace e57
 				if (rProcess != 0) throw pcl::PCLException("ExportToPCD_Process failed - " + std::to_string(rProcess));
 
 				// Merge
-				out += (*outPointCloud);
+				(*out) += (*outPointCloud);
 				{
 					std::stringstream ss;
-					ss << "[e57::%s::ExportToPCD] Final cloud size " << out.size() << " points.\n";
+					ss << "[e57::%s::ExportToPCD] Final cloud size " << out->size() << " points.\n";
 					PCL_INFO(ss.str().c_str(), "Converter");
 				}
 				p = !p;
@@ -795,9 +786,161 @@ namespace e57
 		{
 			PCL_INFO("[e57::%s::ExportToPCD] Got an unknown exception.\n", "Converter");
 		}
+
+		if (reconstructNDF)
+		{
+			ExportToPCD_ReconstructNDF(voxelUnit, searchRadiusNumVoxels, out, NDFs);
+		}
 	}
 
-	void Converter::ReconstructNDF(const double voxelUnit, const unsigned int searchRadiusNumVoxels, pcl::PointCloud<PointPCD>& cloud)
+	int ExportToPCD_ReconstructNDF_Process(const std::vector<OCTQuery>* querys, const int64_t queryID, std::vector<pcl::PointCloud<PointE57>::Ptr>* rawE57CloudBuffer, bool p, const pcl::PointCloud<PointPCD>::Ptr* cloud, const std::vector<ScanInfo>* scanInfo, std::vector<pcl::PointCloud<pcl::Intensity>::Ptr>* NDFs)
 	{
+		if (queryID >= querys->size())
+			return 0;
+		if ((*rawE57CloudBuffer)[p].get() == nullptr)
+			return 1;
+		if (cloud->get() == nullptr)
+			return 2;
+
+		//
+		pcl::PointCloud<PointExchange>::Ptr rawE57Cloud(new pcl::PointCloud<PointExchange>());
+		rawE57Cloud->resize((*rawE57CloudBuffer)[p]->size());
+		for (std::size_t pi = 0; pi < rawE57Cloud->size(); ++pi)
+			(*rawE57Cloud)[pi] = (*(*rawE57CloudBuffer)[p])[pi];
+		pcl::search::KdTree<PointExchange>::Ptr rawE57Cloud_tree(new pcl::search::KdTree<PointExchange>());
+
+		pcl::PointCloud<PointExchange>::Ptr e57Cloud(new pcl::PointCloud<PointExchange>);
+		pcl::search::KdTree<PointExchange>::Ptr e57Cloud_tree(new pcl::search::KdTree<PointExchange>());
+
+		pcl::PointCloud<PointExchange>::Ptr e57Cloud_CB(new pcl::PointCloud<PointExchange>);
+
+		//
+		{
+			PCL_INFO("[e57::ExportToPCD_ReconstructNDF_Process] Crop Box Ext.\n");
+
+			Eigen::Vector3d extMinBB;
+			Eigen::Vector3d extMaxBB;
+			Eigen::Vector3d extXYZ((*querys)[queryID].searchRadius, (*querys)[queryID].searchRadius, (*querys)[queryID].searchRadius);
+			extMinBB = (*querys)[queryID].minBB - extXYZ;
+			extMaxBB = (*querys)[queryID].maxBB + extXYZ;
+
+			pcl::PointCloud<PointPCD>::Ptr pcdCloud(new pcl::PointCloud<PointPCD>);
+			pcl::CropBox<PointPCD> cb;
+			cb.setMin(Eigen::Vector4f(extMinBB.x(), extMinBB.y(), extMinBB.z(), 1.0));
+			cb.setMax(Eigen::Vector4f(extMaxBB.x(), extMaxBB.y(), extMaxBB.z(), 1.0));
+			cb.setInputCloud(*cloud);
+			cb.filter(*pcdCloud);
+
+			std::stringstream ss;
+			ss << "[e57::ExportToPCD_ReconstructNDF_Process] Crop Box Ext - inSize, outSize: " << (*cloud)->size() << ", " << pcdCloud->size() << ".\n";
+			PCL_INFO(ss.str().c_str());
+
+			e57Cloud->resize(pcdCloud->size());
+			for (std::size_t pi = 0; pi < pcdCloud->size(); ++pi)
+				(*e57Cloud)[pi] = (*pcdCloud)[pi];
+		}
+
+		{
+			PCL_INFO("[e57::ExportToPCD_ReconstructNDF_Process] Crop Box.\n");
+
+			pcl::CropBox<PointExchange> cb;
+			cb.setMin(Eigen::Vector4f((*querys)[queryID].minBB.x(), (*querys)[queryID].minBB.y(), (*querys)[queryID].minBB.z(), 1.0));
+			cb.setMax(Eigen::Vector4f((*querys)[queryID].maxBB.x(), (*querys)[queryID].maxBB.y(), (*querys)[queryID].maxBB.z(), 1.0));
+			cb.setInputCloud(e57Cloud);
+			cb.filter(*e57Cloud_CB);
+
+			std::stringstream ss;
+			ss << "[e57::ExportToPCD_ReconstructNDF_Process] Crop Box - inSize, outSize: " << e57Cloud->size() << ", " << e57Cloud_CB->size() << ".\n";
+			PCL_INFO(ss.str().c_str());
+		}
+
+		PCL_INFO("[e57::ExportToPCD_Process] Upsampling Normal.\n");
+		{
+			pcl::NormalEstimationOMP<PointExchange, PointExchange> ne;
+			ne.setSearchMethod(e57Cloud_tree);
+			ne.setRadiusSearch((*querys)[queryID].searchRadius);
+			ne.setSearchSurface(e57Cloud);
+			ne.setInputCloud(rawE57Cloud);
+			ne.compute(*rawE57Cloud);
+		}
+
+		PCL_INFO("[e57::ExportToPCD_Process] Upsampling SegmentID.\n");
+		{
+			//e57Cloud_tree->nearestKSearch
+		}
+
+		return 0;
+	}
+
+	void Converter::ExportToPCD_ReconstructNDF(const double voxelUnit, const unsigned int searchRadiusNumVoxels, const pcl::PointCloud<PointPCD>::Ptr& cloud, std::vector<pcl::PointCloud<pcl::Intensity>::Ptr>& NDFs)
+	{
+		throw pcl::PCLException("Not done");
+		try
+		{
+			if (!PCD_CAN_CONTAIN_LABEL)
+				throw pcl::PCLException("You must compile the program with POINT_PCD_WITH_LABEL definition to enable ExportToPCD_ReconstructNDF");
+			if (!E57_CAN_CONTAIN_LABEL)
+				throw pcl::PCLException("You must compile the program with POINT_E57_WITH_LABEL definition to enable ExportToPCD_ReconstructNDF");
+			if (!E57_CAN_CONTAIN_INTENSITY)
+				throw pcl::PCLException("You must compile the program with POINT_E57_WITH_INTENSITY definition to enable ExportToPCD_ReconstructNDF");
+			if (!PCD_CAN_CONTAIN_INTENSITY)
+				throw pcl::PCLException("You must compile the program with POINT_PCD_WITH_INTENSITY definition to enable ExportToPCD_ReconstructNDF");
+			if (!PCD_CAN_CONTAIN_NORMAL)
+				throw pcl::PCLException("You must compile the program with POINT_PCD_WITH_NORMAL definition to enable ExportToPCD_ReconstructNDF");
+
+			//
+			NDFs.clear();
+			std::vector<OCTQuery> querys;
+			OCT::Iterator it(*oct);
+			while (*it != nullptr)
+			{
+				if ((*it)->getNodeType() == pcl::octree::LEAF_NODE)
+				{
+					OCTQuery query;
+					query.voxelUnit = voxelUnit;
+					query.meanK = -1;
+					query.polynomialOrder = -1;
+					query.reconstructAlbedo = false;
+					query.reconstructNDF = true;
+					(*it)->getBoundingBox(query.minBB, query.maxBB);
+					query.depth = (*it)->getDepth();
+					query.searchRadius = voxelUnit * searchRadiusNumVoxels;
+					querys.push_back(query);
+				}
+				it++;
+			}
+
+			// Segment
+
+			
+			//
+			bool p = false;
+			std::vector<pcl::PointCloud<PointE57>::Ptr> rawE57CloudBuffer(2);
+			{
+				int rQuery = ExportToPCD_Query(&oct, &querys, 0, &rawE57CloudBuffer, p);
+				if (rQuery != 0) throw pcl::PCLException("ExportToPCD_ReconstructNDF_Query failed - " + std::to_string(rQuery));
+			}
+			for (int64_t queryID = 0; queryID < querys.size(); ++queryID)
+			{
+				std::future<int> query = std::async(ExportToPCD_Query, &oct, &querys, queryID + 1, &rawE57CloudBuffer, !p);
+				std::future<int> process = std::async(ExportToPCD_ReconstructNDF_Process, &querys, queryID, &rawE57CloudBuffer, p, &cloud, &scanInfo, &NDFs);
+				int rQuery = query.get();
+				int rProcess = process.get();
+				if (rQuery != 0) throw pcl::PCLException("ExportToPCD_ReconstructNDF_Query failed - " + std::to_string(rQuery));
+				if (rProcess != 0) throw pcl::PCLException("ExportToPCD_ReconstructNDF_Process failed - " + std::to_string(rProcess));
+
+				p = !p;
+			}
+		}
+		catch (std::exception& ex)
+		{
+			std::stringstream ss;
+			ss << "[e57::%s::ExportToPCD_ReconstructNDF] Got an std::exception, what=" << ex.what() << ".\n";
+			PCL_INFO(ss.str().c_str(), "Converter");
+		}
+		catch (...)
+		{
+			PCL_INFO("[e57::%s::ExportToPCD_ReconstructNDF] Got an unknown exception.\n", "Converter");
+		}
 	}
 }

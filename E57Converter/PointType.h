@@ -118,7 +118,7 @@ struct EIGEN_ALIGN16 _PointE57
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
-struct EIGEN_ALIGN16 _PointE57_Normal
+struct EIGEN_ALIGN16 _PointExchange
 {
 	PCL_ADD_POINT4D;
 
@@ -126,7 +126,8 @@ struct EIGEN_ALIGN16 _PointE57_Normal
 	union EIGEN_ALIGN16 { float data_hdr[4]; struct { float hdr_r; float hdr_g; float hdr_b; float hdr_a; }; };
 #endif
 
-	ADD_NORMAL_RGB_INTENSITY_LABEL
+	ADD_NORMAL_RGB_INTENSITY_LABEL;
+	union { uint32_t segmentLabel; int32_t hasSegmentLabel; };
 
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
@@ -163,6 +164,10 @@ struct EIGEN_ALIGN16 _PointPCD
 };
 
 //
+struct PointExchange;
+struct PointE57;
+struct PointPCD;
+
 struct PointE57 : public _PointE57
 {
 	inline PointE57(const PointE57& p)
@@ -181,6 +186,10 @@ struct PointE57 : public _PointE57
 		label = p.label;
 #endif
 	}
+
+	inline PointE57(const PointExchange& p);
+
+	inline PointE57(const PointPCD& p);
 
 	inline PointE57()
 	{
@@ -217,7 +226,7 @@ struct PointE57 : public _PointE57
 			;
 	}
 
-#ifdef POINT_PCD_WITH_LABEL
+#ifdef POINT_E57_WITH_LABEL
 	inline bool HasLabel()
 	{
 		return !(hasLabel == -1);
@@ -225,30 +234,14 @@ struct PointE57 : public _PointE57
 #endif
 };
 
-struct PointE57_Normal : public _PointE57_Normal
+struct PointExchange : public _PointExchange
 {
-	inline PointE57_Normal(const PointE57& p)
+	inline PointExchange(const PointExchange& p)
 	{
 		x = p.x; y = p.y; z = p.z; data[3] = 1.0f;
-		normal_x = normal_y = normal_z = data_n[3] = curvature = 0.f;
-#ifdef POINT_E57_WITH_HDR
-		hdr_r = p.hdr_r; hdr_g = p.hdr_g; hdr_b = p.hdr_b; hdr_a = p.hdr_a;
-#endif
-#ifdef POINT_E57_WITH_RGB
-		rgba = p.rgba;
-#endif
-#ifdef POINT_E57_WITH_INTENSITY
-		intensity = p.intensity;
-#endif
-#ifdef POINT_E57_WITH_LABEL
-		label = p.label;
-#endif
-	}
-
-	inline PointE57_Normal(const PointE57_Normal& p)
-	{
-		x = p.x; y = p.y; z = p.z; data[3] = 1.0f;
+#ifdef POINT_PCD_WITH_NORMAL
 		normal_x = p.normal_x; normal_y = p.normal_y; normal_z = p.normal_z; data_n[3] = 0.f; curvature = p.curvature;
+#endif
 #ifdef POINT_E57_WITH_HDR
 		hdr_r = p.hdr_r; hdr_g = p.hdr_g; hdr_b = p.hdr_b; hdr_a = p.hdr_a;
 #endif
@@ -261,9 +254,37 @@ struct PointE57_Normal : public _PointE57_Normal
 #ifdef POINT_E57_WITH_LABEL
 		label = p.label;
 #endif
+#ifdef POINT_PCD_WITH_LABEL
+		segmentLabel = p.segmentLabel;
+#endif
 	}
 
-	inline PointE57_Normal()
+	inline PointExchange(const PointE57& p)
+	{
+		x = p.x; y = p.y; z = p.z; data[3] = 1.0f;
+#ifdef POINT_PCD_WITH_NORMAL
+		normal_x = normal_y = normal_z = data_n[3] = curvature = 0.f;
+#endif
+#ifdef POINT_E57_WITH_HDR
+		hdr_r = p.hdr_r; hdr_g = p.hdr_g; hdr_b = p.hdr_b; hdr_a = p.hdr_a;
+#endif
+#ifdef POINT_E57_WITH_RGB
+		rgba = p.rgba;
+#endif
+#ifdef POINT_E57_WITH_INTENSITY
+		intensity = p.intensity;
+#endif
+#ifdef POINT_E57_WITH_LABEL
+		label = p.label;
+#endif
+#ifdef POINT_PCD_WITH_LABEL
+		hasSegmentLabel = -1;
+#endif
+	}
+
+	inline PointExchange(const PointPCD& p);
+
+	inline PointExchange()
 	{
 		Clear();
 	}
@@ -271,7 +292,9 @@ struct PointE57_Normal : public _PointE57_Normal
 	inline void Clear()
 	{
 		x = y = z = 0.0f; data[3] = 1.f;
+#ifdef POINT_PCD_WITH_NORMAL
 		normal_x = normal_y = normal_z = data_n[3] = curvature = 0.f;
+#endif
 #ifdef POINT_E57_WITH_HDR
 		hdr_r = hdr_g = hdr_b = hdr_a = 0.f;
 #endif
@@ -284,13 +307,18 @@ struct PointE57_Normal : public _PointE57_Normal
 #ifdef POINT_E57_WITH_LABEL
 		hasLabel = -1;
 #endif
+#ifdef POINT_PCD_WITH_LABEL
+		hasSegmentLabel = -1;
+#endif
 	}
 
 	inline bool Valid()
 	{
 		return
 			std::isfinite(x) && std::isfinite(y) && std::isfinite(z)
+#ifdef POINT_PCD_WITH_NORMAL
 			&& std::isfinite(normal_x) && std::isfinite(normal_y) && std::isfinite(normal_z) && std::isfinite(curvature)
+#endif
 #ifdef POINT_E57_WITH_HDR
 			&& std::isfinite(hdr_r) && std::isfinite(hdr_g) && std::isfinite(hdr_b) && std::isfinite(hdr_a)
 #endif
@@ -300,10 +328,17 @@ struct PointE57_Normal : public _PointE57_Normal
 			;
 	}
 
-#ifdef POINT_PCD_WITH_LABEL
+#ifdef POINT_E57_WITH_LABEL
 	inline bool HasLabel()
 	{
 		return !(hasLabel == -1);
+	}
+#endif
+
+#ifdef POINT_PCD_WITH_LABEL
+	inline bool HasSegmentLabel()
+	{
+		return !(hasSegmentLabel == -1);
 	}
 #endif
 };
@@ -348,11 +383,11 @@ struct PointPCD : public _PointPCD
 #	endif
 #endif
 #ifdef POINT_PCD_WITH_LABEL
-		label = p.label;
+		hasLabel = -1;
 #endif
 	}
 
-	inline PointPCD(const PointE57_Normal& p)
+	inline PointPCD(const PointExchange& p)
 	{
 		x = p.x; y = p.y; z = p.z; data[3] = 1.0f;
 #ifdef POINT_PCD_WITH_NORMAL
@@ -373,7 +408,7 @@ struct PointPCD : public _PointPCD
 #	endif
 #endif
 #ifdef POINT_PCD_WITH_LABEL
-		label = p.label;
+		label = p.segmentLabel;
 #endif
 	}
 
@@ -420,6 +455,79 @@ struct PointPCD : public _PointPCD
 #endif
 };
 
+inline PointE57::PointE57(const PointExchange& p)
+{
+	x = p.x; y = p.y; z = p.z; data[3] = 1.0f;
+#ifdef POINT_E57_WITH_HDR
+	hdr_r = p.hdr_r; hdr_g = p.hdr_g; hdr_b = p.hdr_b; hdr_a = p.hdr_a;
+#endif
+#ifdef POINT_E57_WITH_RGB
+	rgba = p.rgba;
+#endif
+#ifdef POINT_E57_WITH_INTENSITY
+	intensity = p.intensity;
+#endif
+#ifdef POINT_E57_WITH_LABEL
+	label = p.label;
+#endif
+}
+
+inline PointE57::PointE57(const PointPCD& p)
+{
+	x = p.x; y = p.y; z = p.z; data[3] = 1.0f;
+#ifdef POINT_E57_WITH_HDR
+	hdr_r = hdr_g = hdr_b = hdr_a = 0.f;
+#endif
+#ifdef POINT_E57_WITH_RGB
+#	ifdef POINT_PCD_WITH_RGB
+	rgba = p.rgba;
+#	else
+	r = g = b = 0; a = 1;
+#	endif
+#endif
+#ifdef POINT_E57_WITH_INTENSITY
+#	ifdef POINT_PCD_WITH_INTENSITY
+	intensity = p.intensity;
+#	else
+	intensity = 0.f;
+#	endif
+#endif
+#ifdef POINT_E57_WITH_LABEL
+	hasLabel = -1;
+#endif
+}
+
+inline PointExchange::PointExchange(const PointPCD& p)
+{
+	x = p.x; y = p.y; z = p.z; data[3] = 1.0f;
+#ifdef POINT_PCD_WITH_NORMAL
+	normal_x = p.normal_x; normal_y = p.normal_y; normal_z = p.normal_z; data_n[3] = 0.f; curvature = p.curvature;
+#endif
+#ifdef POINT_E57_WITH_HDR
+	hdr_r = hdr_g = hdr_b = hdr_a = 0.f;
+#endif
+#ifdef POINT_E57_WITH_RGB
+#	ifdef POINT_PCD_WITH_RGB
+	rgba = p.rgba;
+#	else
+	r = g = b = 0; a = 1;
+#	endif
+#endif
+#ifdef POINT_E57_WITH_INTENSITY
+#	ifdef POINT_PCD_WITH_INTENSITY
+	intensity = p.intensity;
+#	else
+	intensity = 0.f;
+#	endif
+#endif
+#ifdef POINT_E57_WITH_LABEL
+	hasLabel = -1;
+#endif
+#ifdef POINT_PCD_WITH_LABEL
+	segmentLabel = p.label;
+#endif
+}
+
 //
 #define REGISTER_E57_XYZ (float, x, x) (float, y, y) (float, z, z)
 #ifdef POINT_E57_WITH_HDR
@@ -464,6 +572,11 @@ struct PointPCD : public _PointPCD
 #else
 #define REGISTER_PCD_LABEL
 #endif
+#ifdef POINT_PCD_WITH_LABEL
+#define REGISTER_EXCHANGE_SEGMENT_LABEL (uint32_t, segmentLabel, segmentLabel)
+#else
+#define REGISTER_EXCHANGE_SEGMENT_LABEL
+#endif
 
 POINT_CLOUD_REGISTER_POINT_STRUCT(PointE57,
 	REGISTER_E57_XYZ
@@ -474,15 +587,16 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(PointE57,
 )
 POINT_CLOUD_REGISTER_POINT_WRAPPER(PointE57, PointE57)
 
-POINT_CLOUD_REGISTER_POINT_STRUCT(PointE57_Normal,
+POINT_CLOUD_REGISTER_POINT_STRUCT(PointExchange,
 	REGISTER_E57_XYZ
-	(float, normal_x, normal_x) (float, normal_y, normal_y) (float, normal_z, normal_z) (float, curvature, curvature)
+	REGISTER_PCD_NORMAL
 	REGISTER_E57_HDR
 	REGISTER_E57_RGB
 	REGISTER_E57_INTENSITY
 	REGISTER_E57_LABEL
+	REGISTER_EXCHANGE_SEGMENT_LABEL
 )
-POINT_CLOUD_REGISTER_POINT_WRAPPER(PointE57_Normal, PointE57_Normal)
+POINT_CLOUD_REGISTER_POINT_WRAPPER(PointExchange, PointExchange)
 
 POINT_CLOUD_REGISTER_POINT_STRUCT(PointPCD,
 	REGISTER_PCD_XYZ
