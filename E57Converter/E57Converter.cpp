@@ -194,6 +194,13 @@ namespace e57
 		}
 	}
 
+	struct Color
+	{
+		unsigned char r;
+		unsigned char g;
+		unsigned char b;
+	};
+
 	void Converter::ReconstructScanImages(pcl::PointCloud<PointPCD>& cloud, const boost::filesystem::path& scanImagePath, const CoodSys coodSys, const RAEMode raeMode, const float fovy, const unsigned int width, const unsigned int height)
 	{
 		try
@@ -201,6 +208,18 @@ namespace e57
 			if (!E57_CAN_CONTAIN_LABEL)
 				throw pcl::PCLException("You must compile the program with POINT_E57_WITH_LABEL definition to enable the function");
 
+			//
+			std::vector<Color> colorTable;
+			colorTable.resize(10000);
+			srand(time(NULL));
+			for (std::size_t i = 0; i < colorTable.size(); ++i)
+			{
+				colorTable[i].r = rand() % 255;
+				colorTable[i].g = rand() % 255;
+				colorTable[i].b = rand() % 255;
+			}
+
+			//
 			if (!boost::filesystem::exists(scanImagePath))
 			{
 				boost::filesystem::create_directory(scanImagePath);
@@ -278,6 +297,11 @@ namespace e57
 						scanImageP.y = uv.y();
 						scanImageP.z = depth;
 						scanImageP.data[3] = depth;
+
+						std::size_t colorIndex = cloudIT->label % colorTable.size();
+						scanImageP.r = colorTable[colorIndex].r;
+						scanImageP.g = colorTable[colorIndex].g;
+						scanImageP.b = colorTable[colorIndex].b;
 					}
 				}
 
@@ -986,7 +1010,7 @@ namespace e57
 
 		if (reconstructNDF)
 		{
-			ExportToPCD_ReconstructNDF(voxelUnit, searchRadiusNumVoxels, out, NDFs);
+			//ExportToPCD_ReconstructNDF(voxelUnit, searchRadiusNumVoxels, out, NDFs);
 		}
 	}
 
@@ -1053,6 +1077,9 @@ namespace e57
 
 		PCL_INFO("[e57::ExportToPCD_ReconstructNDF_Process] Upsampling Normal and segmentLabel ID.\n");
 		{
+			if (e57Cloud_tree->getInputCloud() != e57Cloud)
+				e57Cloud_tree->setInputCloud(e57Cloud);
+
 #ifdef _OPENMP
 #pragma omp parallel for num_threads(omp_get_num_procs())
 #endif
@@ -1190,7 +1217,7 @@ namespace e57
 		return 0;
 	}
 
-	void Converter::ExportToPCD_ReconstructNDF(const double voxelUnit, const unsigned int searchRadiusNumVoxels, const pcl::PointCloud<PointPCD>::Ptr& cloud, std::vector<pcl::PointCloud<PointNDF>::Ptr>& NDFs)
+	void Converter::ExportToPCD_ReconstructNDF(const double voxelUnit, const unsigned int searchRadiusNumVoxels, float spatialImportance, float normalImportance, const pcl::PointCloud<PointPCD>::Ptr& cloud, std::vector<pcl::PointCloud<PointNDF>::Ptr>& NDFs)
 	{
 		try
 		{
@@ -1222,34 +1249,29 @@ namespace e57
 				point.x = pcd.x;
 				point.y = pcd.y;
 				point.z = pcd.z;
-				unsigned char color = (unsigned char)std::max(std::min((300.f * pcd.intensity) * 255.f, 255.f), 0.0f);
+				/*unsigned char color = (unsigned char)std::max(std::min((255.f * pcd.intensity), 255.f), 0.0f);
 				point.r = color;
 				point.g = color;
-				point.b = color;
-				point.r = 0;
-				point.g = 0;
-				point.b = 0; 
+				point.b = color;*/
+				point.rgb = pcd.intensity;
 				normal.normal_x = pcd.normal_x;
 				normal.normal_y = pcd.normal_y;
 				normal.normal_z = pcd.normal_z;
 			}
 
 			//
-			float color_importance = 0.6f;
-			float spatial_importance = 0.3f;
-			float normal_importance = 1.0f;
 			PCL_INFO(("[e57::%s::ExportToPCD_ReconstructNDF] Segment Start. voxel_resolution " + std::to_string((float)voxelUnit) + ", seed_resolution  " + std::to_string((float)(voxelUnit * searchRadiusNumVoxels)) + ".\n").c_str(), "Converter");
 			e57::SupervoxelClustering<pcl::PointXYZRGBA> super((float)voxelUnit, (float)(voxelUnit * searchRadiusNumVoxels));
 			//super.setUseSingleCameraTransform(false);
 			super.setInputCloud(cloudXYZRGBA);
 			super.setNormalCloud(cloudNormal);
-			super.setColorImportance(color_importance);
-			super.setSpatialImportance(spatial_importance);
-			super.setNormalImportance(normal_importance);
-			std::map <uint32_t, e57::Supervoxel<pcl::PointXYZRGBA>::Ptr > supervoxel_clusters;
-			super.extract(supervoxel_clusters);
+			super.setColorImportance(255.0);
+			super.setSpatialImportance(spatialImportance);
+			super.setNormalImportance(normalImportance);
+			std::map <uint32_t, e57::Supervoxel<pcl::PointXYZRGBA>::Ptr > clusters;
+			super.extract(clusters);
 			pcl::PointCloud<pcl::PointXYZL>::Ptr cloudXYZL = super.getLabeledCloud();
-			PCL_INFO(("[e57::%s::ExportToPCD_ReconstructNDF] Segment End. Segment " + std::to_string(supervoxel_clusters.size()) + ", Size " + std::to_string(cloudXYZL->size()) + ".\n").c_str(), "Converter");
+			PCL_INFO(("[e57::%s::ExportToPCD_ReconstructNDF] Segment End. Segment " + std::to_string(clusters.size()) + ", Size " + std::to_string(cloudXYZL->size()) + ".\n").c_str(), "Converter");
 			pcl::search::KdTree<pcl::PointXYZL>::Ptr cloudXYZL_tree(new pcl::search::KdTree<pcl::PointXYZL>());
 			if (cloudXYZL_tree->getInputCloud() != cloudXYZL)
 				cloudXYZL_tree->setInputCloud(cloudXYZL);
@@ -1275,45 +1297,8 @@ namespace e57
 				}
 			}
 
-			/*pcl::PointCloud<PointPCD>::Ptr cloud3(new pcl::PointCloud<PointPCD>());
-			cloud3->reserve(cloud2->size());
-			for (std::map <uint32_t, pcl::Supervoxel<PointPCD>::Ptr >::iterator it = supervoxel_clusters.begin(); it != supervoxel_clusters.end(); ++it)
-			{
-				PCL_INFO(("[e57::%s::ExportToPCD_ReconstructNDF] Merge Segment - " + std::to_string(it->first) + ", Size - " + std::to_string(it->second->voxels_->size()) + ".\n").c_str(), "Converter");
-				for (pcl::PointCloud<PointPCD>::iterator sit = it->second->voxels_->begin(); sit != it->second->voxels_->end(); ++sit)
-					sit->label = it->first;
-				(*cloud3) += (*it->second->voxels_);
-				PCL_INFO(("[e57::%s::ExportToPCD_ReconstructNDF] Merge Segment End. Size " + std::to_string(cloud3->size()) + ".\n").c_str(), "Converter");
-			}
-
-			pcl::search::KdTree<PointPCD>::Ptr cloud3_tree(new pcl::search::KdTree<PointPCD>());
-			if (cloud3_tree->getInputCloud() != cloud3)
-				cloud3_tree->setInputCloud(cloud3);
-			
-			PCL_INFO("[e57::%s::ExportToPCD_ReconstructNDF] Upsampling Segment ID.\n", "Converter");
-			{
-#ifdef _OPENMP
-#pragma omp parallel for num_threads(omp_get_num_procs())
-#endif
-				for (int px = 0; px < static_cast<int> (cloud->size()); ++px)
-				{
-					PointPCD& point = (*cloud)[px];
-					std::vector<int> ki;
-					std::vector<float> kd;
-					if (cloud3_tree->nearestKSearch(point, 1, ki, kd) > 0)
-					{
-						PointPCD& kPoint = (*cloud3)[ki[0]];
-						point.label = kPoint.label;
-					}
-					else
-					{
-						point.hasLabel = -1;
-					}
-				}
-			}*/
-
-			/*
-			for (int i = 0; i < numSegment; ++i)
+			//
+			for (std::size_t i = 0; i < clusters.size(); ++i)
 			{
 				pcl::PointCloud<PointNDF>::Ptr NDF (new pcl::PointCloud<PointNDF>());
 				NDF->reserve(1000);
@@ -1355,7 +1340,7 @@ namespace e57
 				if (rQuery != 0) throw pcl::PCLException("ExportToPCD_ReconstructNDF_Query failed - " + std::to_string(rQuery));
 				if (rProcess != 0) throw pcl::PCLException("ExportToPCD_ReconstructNDF_Process failed - " + std::to_string(rProcess));
 				p = !p;
-			}*/
+			}
 		}
 		catch (std::exception& ex)
 		{

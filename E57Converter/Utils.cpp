@@ -221,8 +221,15 @@ void ReconstructNDF(int argc, char **argv)
 	std::cout << "Parmameters -voxelUnit: " << voxelUnit << std::endl;
 	std::cout << "Parmameters -searchRadiusNumVoxels: " << searchRadiusNumVoxels << std::endl;
 
+	float spatialImportance = 1.0f;
+	float normalImportance = 1.0f;
+	pcl::console::parse_argument(argc, argv, "-spatialImportance", spatialImportance);
+	pcl::console::parse_argument(argc, argv, "-normalImportance", normalImportance);
+	std::cout << "Parmameters -spatialImportance: " << spatialImportance << std::endl;
+	std::cout << "Parmameters -normalImportance: " << normalImportance << std::endl;
+
 	std::vector<pcl::PointCloud<PointNDF>::Ptr> NDFs;
-	e57Converter->ExportToPCD_ReconstructNDF(voxelUnit, searchRadiusNumVoxels, cloud, NDFs);
+	e57Converter->ExportToPCD_ReconstructNDF(voxelUnit, searchRadiusNumVoxels, spatialImportance, normalImportance, cloud, NDFs);
 	pcl::io::savePCDFile(pcdFilePath.string(), *cloud, true);
 
 	boost::filesystem::path dirFilePath = pcdFilePath.parent_path();

@@ -45,6 +45,6 @@ namespace e57
 		//
 		void BuildLOD(const double sample_percent_arg);
 		void ExportToPCD(const double voxelUnit, const unsigned int searchRadiusNumVoxels, const int meanK, const int polynomialOrder, bool reconstructAlbedo, bool reconstructNDF, const pcl::PointCloud<PointPCD>::Ptr& out, std::vector<pcl::PointCloud<PointNDF>::Ptr>& NDFs);
-		void ExportToPCD_ReconstructNDF(const double voxelUnit, const unsigned int searchRadiusNumVoxels, const pcl::PointCloud<PointPCD>::Ptr& cloud, std::vector<pcl::PointCloud<PointNDF>::Ptr>& NDFs);
+		void ExportToPCD_ReconstructNDF(const double voxelUnit, const unsigned int searchRadiusNumVoxels, float spatialImportance, float normalImportance, const pcl::PointCloud<PointPCD>::Ptr& cloud, std::vector<pcl::PointCloud<PointNDF>::Ptr>& NDFs);
 	};
 }
