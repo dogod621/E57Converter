@@ -188,6 +188,9 @@ namespace e57
 
 	void AlbedoEstimation::computeFeature(PointCloudOut &output)
 	{
+		if (!(search_radius_ > 0.0))
+			throw pcl::PCLException("search_radius_ is not set");
+
 #ifdef POINT_E57_WITH_LABEL
 #ifdef POINT_E57_WITH_INTENSITY
 #ifdef POINT_PCD_WITH_INTENSITY
@@ -278,6 +281,9 @@ namespace e57
 
 	void AlbedoEstimationOMP::computeFeature(PointCloudOut &output)
 	{
+		if (!(search_radius_ > 0.0))
+			throw pcl::PCLException("search_radius_ is not set");
+
 #ifdef POINT_E57_WITH_LABEL
 #ifdef POINT_E57_WITH_INTENSITY
 #ifdef POINT_PCD_WITH_INTENSITY

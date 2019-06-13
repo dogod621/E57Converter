@@ -583,8 +583,6 @@ namespace e57
 			e57Cloud = e57Cloud_OLR;
 		}
 
-		// Crop Box
-		pcl::PointCloud<PointExchange>::Ptr e57Cloud_CB(new pcl::PointCloud<PointExchange>);
 		
 		// Estimat Surface
 		if ((*querys)[queryID].polynomialOrder > 0)
@@ -598,36 +596,10 @@ namespace e57
 			mls.setSearchMethod(e57Cloud_tree);
 			mls.setSearchRadius((*querys)[queryID].searchRadius);
 			mls.setInputCloud(e57Cloud);
-			mls.process(*e57Cloud);
-
-			// Crop Box
-			PCL_INFO("[e57::ExportToPCD_Process] Crop Box.\n");
-
-			pcl::CropBox<PointExchange> cb;
-			cb.setMin(Eigen::Vector4f((*querys)[queryID].minBB.x(), (*querys)[queryID].minBB.y(), (*querys)[queryID].minBB.z(), 1.0));
-			cb.setMax(Eigen::Vector4f((*querys)[queryID].maxBB.x(), (*querys)[queryID].maxBB.y(), (*querys)[queryID].maxBB.z(), 1.0));
-			cb.setInputCloud(e57Cloud);
-			cb.filter(*e57Cloud_CB);
-
-			std::stringstream ss;
-			ss << "[e57::ExportToPCD_Process] Crop Box - inSize, outSize: " << e57Cloud->size() << ", " << e57Cloud_CB->size() << ".\n";
-			PCL_INFO(ss.str().c_str());
+			mls.process(*e57Cloud);			
 		}
 		else // Estimat Normal
 		{
-			// Crop Box
-			PCL_INFO("[e57::ExportToPCD_Process] Crop Box.\n");
-
-			pcl::CropBox<PointExchange> cb;
-			cb.setMin(Eigen::Vector4f((*querys)[queryID].minBB.x(), (*querys)[queryID].minBB.y(), (*querys)[queryID].minBB.z(), 1.0));
-			cb.setMax(Eigen::Vector4f((*querys)[queryID].maxBB.x(), (*querys)[queryID].maxBB.y(), (*querys)[queryID].maxBB.z(), 1.0));
-			cb.setInputCloud(e57Cloud);
-			cb.filter(*e57Cloud_CB);
-
-			std::stringstream ss;
-			ss << "[e57::ExportToPCD_Process] Crop Box - inSize, outSize: " << e57Cloud->size() << ", " << e57Cloud_CB->size() << ".\n";
-			PCL_INFO(ss.str().c_str());
-
 			if (PCD_CAN_CONTAIN_NORMAL)
 			{
 				PCL_INFO("[e57::ExportToPCD_Process] Estimat Normal.\n");
@@ -637,14 +609,29 @@ namespace e57
 				ne.setSearchMethod(e57Cloud_tree);
 				ne.setRadiusSearch((*querys)[queryID].searchRadius);
 				ne.setSearchSurface(e57Cloud);
-				ne.setInputCloud(e57Cloud_CB);
-				ne.compute(*e57Cloud_CB);
+				ne.setInputCloud(e57Cloud);
+				ne.compute(*e57Cloud);
 			}
+		}
+
+		// Crop Box
+		pcl::PointCloud<PointExchange>::Ptr e57Cloud_CB(new pcl::PointCloud<PointExchange>);
+		{
+			PCL_INFO("[e57::ExportToPCD_Process] Crop Box.\n");
+
+			pcl::CropBox<PointExchange> cb;
+			cb.setMin(Eigen::Vector4f((*querys)[queryID].minBB.x(), (*querys)[queryID].minBB.y(), (*querys)[queryID].minBB.z(), 1.0));
+			cb.setMax(Eigen::Vector4f((*querys)[queryID].maxBB.x(), (*querys)[queryID].maxBB.y(), (*querys)[queryID].maxBB.z(), 1.0));
+			cb.setInputCloud(e57Cloud);
+			cb.filter(*e57Cloud_CB);
+
+			std::stringstream ss;
+			ss << "[e57::ExportToPCD_Process] Crop Box - inSize, outSize: " << e57Cloud->size() << ", " << e57Cloud_CB->size() << ".\n";
+			PCL_INFO(ss.str().c_str());
 		}
 
 		//
 		(*outPointCloud)->resize(e57Cloud_CB->size());
-		if (PCD_CAN_CONTAIN_NORMAL)
 		for (std::size_t pi = 0; pi < e57Cloud_CB->size(); ++pi)
 			(*(*outPointCloud))[pi] = (*e57Cloud_CB)[pi];
 
@@ -656,12 +643,56 @@ namespace e57
 			//
 			PCL_INFO("[e57::ExportToPCD_Process] Estimat Albedo - Upsampling Normal.\n");
 			{
-				pcl::NormalEstimationOMP<PointExchange, PointExchange> ne;
-				ne.setSearchMethod(e57Cloud_tree);
-				ne.setRadiusSearch((*querys)[queryID].searchRadius);
-				ne.setSearchSurface(e57Cloud);
-				ne.setInputCloud(rawE57Cloud);
-				ne.compute(*rawE57Cloud);
+				if (e57Cloud_tree->getInputCloud() != e57Cloud)
+					e57Cloud_tree->setInputCloud(e57Cloud);
+
+#ifdef _OPENMP
+#pragma omp parallel for shared (rawE57Cloud) num_threads(omp_get_num_procs())
+#endif
+				// Iterating over the entire index vector
+				for (int px = 0; px < static_cast<int> (rawE57Cloud->size()); ++px)
+				{
+					PointExchange& point = (*rawE57Cloud)[px];
+					std::vector<int> ki;
+					std::vector<float> kd;
+					if (e57Cloud_tree->nearestKSearch(point, 1, ki, kd) > 0)
+					{
+						PointExchange& k = (*e57Cloud)[ki[0]];
+						point.normal_x = k.normal_x;
+						point.normal_y = k.normal_y;
+						point.normal_z = k.normal_z;
+						point.curvature = k.curvature;
+					}
+					else
+					{
+						point.normal_x = 0.0f;
+						point.normal_y = 0.0f;
+						point.normal_z = 0.0f;
+						point.curvature = 0.0f;
+					}
+				}
+
+
+				/*for (pcl::PointCloud<PointExchange>::iterator it = rawE57Cloud->begin(); it != rawE57Cloud->end(); ++it)
+				{
+					std::vector<int> ki;
+					std::vector<float> kd;
+					if (e57Cloud_tree->nearestKSearch(*it, 1, ki, kd) > 0)
+					{
+						PointExchange& k = (*e57Cloud)[ki[0]];
+						it->normal_x = k.normal_x;
+						it->normal_y = k.normal_y;
+						it->normal_z = k.normal_z;
+						it->curvature = k.curvature;
+					}
+					else
+					{
+						it->normal_x = 0.0f;
+						it->normal_y = 0.0f;
+						it->normal_z = 0.0f;
+						it->curvature = 0.0f;
+					}
+				}*/
 			}
 
 			PCL_INFO("[e57::ExportToPCD_Process] Estimat Albedo - Estimat Albedo.\n");
